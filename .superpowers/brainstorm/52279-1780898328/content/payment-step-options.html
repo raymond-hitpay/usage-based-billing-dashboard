@@ -1,0 +1,156 @@
+<h2>How should "Enable payments" work in the setup guide?</h2>
+<p class="subtitle">One step, merchant decides which methods they need — but we still show what's been enabled</p>
+
+<style>
+.opts { display: flex; flex-direction: column; gap: 18px; margin-top: 8px; }
+.opt { border: 2px solid #e2e8f0; border-radius: 14px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; background: #fff; }
+.opt:hover { border-color: #94a3b8; box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+.opt.selected { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.opt-label { display: flex; align-items: center; gap: 12px; padding: 13px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.opt-letter { width: 26px; height: 26px; border-radius: 7px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #475569; flex-shrink: 0; }
+.opt.selected .opt-letter { background: #6366f1; color: #fff; }
+.opt-title { font-size: 13px; font-weight: 600; color: #1e293b; }
+.opt-desc { font-size: 11px; color: #64748b; margin-top: 1px; }
+.preview { padding: 16px; background: #f1f5f9; }
+
+/* Shared step row chrome */
+.step-card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 14px; }
+.step-row { display: flex; align-items: flex-start; gap: 10px; }
+.circle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; flex-shrink: 0; margin-top: 1px; }
+.step-body { flex: 1; }
+.step-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+.step-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.step-cta { font-size: 11px; font-weight: 600; color: #3b82f6; margin-top: 6px; display: inline-block; }
+
+/* Option A — tags row */
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.tag { display: flex; align-items: center; gap: 4px; border-radius: 99px; padding: 3px 9px; font-size: 10px; font-weight: 600; border: 1px solid; }
+.tag.on  { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+.tag.off { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
+
+/* Option B — inline mini table */
+.mini-table { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.mini-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 6px; background: #f8fafc; }
+.mini-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.mini-dot.on { background: #22c55e; }
+.mini-dot.off { background: #cbd5e1; }
+.mini-label { font-size: 10px; color: #475569; flex: 1; }
+.mini-badge { font-size: 9px; font-weight: 600; }
+.mini-badge.on { color: #16a34a; }
+.mini-badge.off { color: #94a3b8; }
+.mini-badge.action { color: #3b82f6; cursor: pointer; }
+
+/* Option C — progress bar + count */
+.pbar-wrap { margin-top: 8px; }
+.pbar-lbl { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-bottom: 4px; }
+.pbar { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+.pbar-fill { height: 100%; background: #3b82f6; border-radius: 99px; }
+.pbar-methods { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.pbar-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.pbar-pill.on { background: #dbeafe; color: #1d4ed8; }
+.pbar-pill.off { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; }
+</style>
+
+<div class="opts">
+
+  <!-- Option A -->
+  <div class="opt" data-choice="a" onclick="toggleSelect(this)">
+    <div class="opt-label">
+      <div class="opt-letter">A</div>
+      <div>
+        <div class="opt-title">Single step + enabled method tags</div>
+        <div class="opt-desc">One step row shows category tags — green when enabled, gray when not. Step completes when any method is turned on.</div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="step-card">
+        <div class="step-row">
+          <div class="circle"></div>
+          <div class="step-body">
+            <div class="step-label">Enable payment methods</div>
+            <div class="step-sub">Choose which methods your customers can pay with</div>
+            <div class="tags">
+              <span class="tag on">✓ Local QR</span>
+              <span class="tag off">Cards</span>
+              <span class="tag off">Cross Border</span>
+            </div>
+            <span class="step-cta">Manage →</span>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px;text-align:center">Local QR already enabled · step turns ✓ once first method is on</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="opt" data-choice="b" onclick="toggleSelect(this)">
+    <div class="opt-label">
+      <div class="opt-letter">B</div>
+      <div>
+        <div class="opt-title">Single step + expandable category rows</div>
+        <div class="opt-desc">Step expands to show each category as a mini row with status and a direct link. Merchant enables what they need, ignores the rest.</div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="step-card">
+        <div class="step-row">
+          <div class="circle"></div>
+          <div class="step-body">
+            <div class="step-label">Enable payment methods</div>
+            <div class="step-sub">At least one method active</div>
+            <div class="mini-table">
+              <div class="mini-row">
+                <div class="mini-dot on"></div>
+                <span class="mini-label">Local QR</span>
+                <span class="mini-badge on">Active</span>
+              </div>
+              <div class="mini-row">
+                <div class="mini-dot off"></div>
+                <span class="mini-label">Cards</span>
+                <span class="mini-badge action">Enable →</span>
+              </div>
+              <div class="mini-row">
+                <div class="mini-dot off"></div>
+                <span class="mini-label">Cross Border</span>
+                <span class="mini-badge action">Enable →</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px;text-align:center">Each row links directly to that section · step completes when ≥1 is active</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="opt" data-choice="c" onclick="toggleSelect(this)">
+    <div class="opt-label">
+      <div class="opt-letter">C</div>
+      <div>
+        <div class="opt-title">Single step + progress bar with active methods</div>
+        <div class="opt-desc">A compact progress bar and blue pills show active methods. No pressure to enable everything — just "1 of 3 active" is enough.</div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="step-card">
+        <div class="step-row">
+          <div class="circle"></div>
+          <div class="step-body">
+            <div class="step-label">Enable payment methods</div>
+            <div class="pbar-wrap">
+              <div class="pbar-lbl"><span>1 of 3 categories active</span><span class="step-cta" style="margin:0">Manage →</span></div>
+              <div class="pbar"><div class="pbar-fill" style="width:33%"></div></div>
+            </div>
+            <div class="pbar-methods">
+              <span class="pbar-pill on">Local QR</span>
+              <span class="pbar-pill off">Cards</span>
+              <span class="pbar-pill off">Cross Border</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px;text-align:center">Step completes when ≥1 active · no obligation to enable all</p>
+    </div>
+  </div>
+
+</div>
