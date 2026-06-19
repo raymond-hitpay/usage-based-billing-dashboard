@@ -39,6 +39,7 @@ import {
   Mail,
   Wallet,
   Banknote,
+  BarChart3,
   ReceiptText,
   Scale,
   TrendingUp,
@@ -272,6 +273,13 @@ const settingsSections: NavSection[] = [
       { label: "Business Details", icon: Building2 },
       { label: "Account Verification", icon: BadgeCheck },
       { label: "Bank Accounts", icon: Landmark },
+    ],
+  },
+  {
+    heading: "BILLING",
+    items: [
+      { label: "Usage", icon: BarChart3 },
+      { label: "Billing", icon: ReceiptText },
     ],
   },
   {

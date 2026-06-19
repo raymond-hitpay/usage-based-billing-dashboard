@@ -1,15 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, X, Layers, ChevronLeft, ChevronRight, Link2, FileText, QrCode, Tablet, Send } from "lucide-react";
+import { ArrowRight, X, ChevronLeft, ChevronRight, Link2, FileText, QrCode, Tablet, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type SetupGuideVariant, type SetupGroup, countRemaining } from "@/lib/setup-guide-data";
-import { SetupGuideInline } from "./setup-guide-inline";
+import { type SetupGroup } from "@/lib/setup-guide-data";
 
 interface OverviewPageProps {
-  variant: SetupGuideVariant;
-  onVariantChange: (v: SetupGuideVariant) => void;
-  onOpenSetupGuide: () => void;
   onNavigate: (page: string) => void;
   setupGroups: SetupGroup[];
 }
@@ -511,140 +507,17 @@ function SalesByPaymentMethod({ onNavigate }: { onNavigate: (p: string) => void 
 
 /* ── Main page ───────────────────────────────────────────────────── */
 export function OverviewPage({
-  variant,
-  onVariantChange,
-  onOpenSetupGuide,
   onNavigate,
   setupGroups,
 }: OverviewPageProps) {
-  const remaining = countRemaining(setupGroups);
-
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-white">
       {/* Page header */}
       <div className="flex items-center justify-between border-b border-slate-100 px-7 py-4">
         <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
-        {/* Prototype toggle */}
-        <div className="flex items-center gap-2">
-          <Layers className="h-3.5 w-3.5 text-slate-300" />
-          <span className="text-xs text-slate-400 mr-0.5">Prototype:</span>
-          <div className="flex rounded-md border border-slate-200 overflow-hidden text-xs font-medium">
-            <button
-              onClick={() => onVariantChange("floating")}
-              className={cn(
-                "px-3 py-1.5 transition-colors",
-                variant === "floating" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-              )}
-            >
-              Floating
-            </button>
-            <button
-              onClick={() => onVariantChange("panel")}
-              className={cn(
-                "px-3 py-1.5 border-l border-slate-200 transition-colors",
-                variant === "panel" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-              )}
-            >
-              Side Panel
-            </button>
-            <button
-              onClick={() => onVariantChange("inline")}
-              className={cn(
-                "px-3 py-1.5 border-l border-slate-200 transition-colors",
-                variant === "inline" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-              )}
-            >
-              Inline
-            </button>
-          </div>
-        </div>
       </div>
 
       <div className="flex-1 px-7 py-5 space-y-5">
-        {/* ── Inline Setup Guide (variant C) ── */}
-        {variant === "inline" && (
-          <SetupGuideInline groups={setupGroups} onNavigate={onNavigate} />
-        )}
-        {/* ── Notification Banner (panel only) ── */}
-        {variant === "panel" && <div className="relative overflow-hidden rounded-xl bg-slate-100 px-7 py-6">
-          {/* Decorative right-side graphic */}
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute right-0 top-0 h-full w-72"
-            viewBox="0 0 288 120"
-            preserveAspectRatio="xMidYMid slice"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              {/* Dot grid pattern */}
-              <pattern id="banner-dots" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1.4" fill="#6366f1" fillOpacity="0.22" />
-              </pattern>
-              {/* Left-edge fade so dots don't clash with text */}
-              <linearGradient id="banner-fade" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#f1f5f9" stopOpacity="1" />
-                <stop offset="45%" stopColor="#f1f5f9" stopOpacity="0" />
-              </linearGradient>
-              {/* Radial glow behind globe rings */}
-              <radialGradient id="banner-glow" cx="75%" cy="50%" r="55%">
-                <stop offset="0%" stopColor="#818cf8" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* Dot fill */}
-            <rect width="288" height="120" fill="url(#banner-dots)" />
-
-            {/* Soft radial glow */}
-            <rect width="288" height="120" fill="url(#banner-glow)" />
-
-            {/* Concentric globe rings centred off the right edge */}
-            {[28, 52, 76, 100, 126, 154].map((r, i) => (
-              <circle
-                key={r}
-                cx="252"
-                cy="60"
-                r={r}
-                fill="none"
-                stroke="#6366f1"
-                strokeWidth="0.8"
-                strokeOpacity={0.28 - i * 0.03}
-              />
-            ))}
-
-            {/* Vertical "meridian" arcs */}
-            {[-30, 0, 30].map((offset) => (
-              <ellipse
-                key={offset}
-                cx={252 + offset}
-                cy="60"
-                rx={Math.abs(offset) + 18}
-                ry="60"
-                fill="none"
-                stroke="#6366f1"
-                strokeWidth="0.6"
-                strokeOpacity="0.15"
-              />
-            ))}
-
-            {/* Left fade overlay */}
-            <rect width="288" height="120" fill="url(#banner-fade)" />
-          </svg>
-
-          <div>
-            <p className="text-lg font-bold text-slate-900">We just need a few more details from you</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Complete these tasks to unlock the full potential of your HitPay account.
-              {remaining > 0 && <> <span className="font-medium text-slate-700">{remaining} step{remaining !== 1 ? "s" : ""} remaining.</span></>}
-            </p>
-            <button
-              onClick={onOpenSetupGuide}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
-            >
-              See pending tasks <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>}
 
         {/* ── Feature Carousel ── */}
         <FeatureCarousel onNavigate={onNavigate} />

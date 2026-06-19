@@ -18,6 +18,8 @@ import {
 } from "./ui/tooltip";
 import { cn } from "@/lib/utils";
 
+export type PricingModel = "volume" | "graduated";
+
 export interface SidebarV2Props {
   activeTab: TabId;
   subView: SubView;
@@ -26,6 +28,8 @@ export interface SidebarV2Props {
   onSubViewChange: (view: SubView) => void;
   onSelectPage: (label: string) => void;
   onOpenAgent: () => void;
+  pricingModel: PricingModel;
+  onPricingModelChange: (model: PricingModel) => void;
 }
 
 export function SidebarV2({
@@ -36,6 +40,8 @@ export function SidebarV2({
   onSubViewChange,
   onSelectPage,
   onOpenAgent,
+  pricingModel,
+  onPricingModelChange,
 }: SidebarV2Props) {
   const sections = resolveSections(activeTab, subView);
   const viewKey = `${activeTab}:${subView ?? "main"}`;
@@ -142,6 +148,31 @@ export function SidebarV2({
               onSelectPage={onSelectPage}
               onNavigate={(t) => onSubViewChange(t)}
             />
+
+            {/* Pricing model toggle — visible in settings when Usage/Billing is selected */}
+            {subView === "settings" && (
+              <div className="mt-4 px-2">
+                <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  Pricing model
+                </div>
+                <div className="flex rounded-lg bg-slate-100 p-0.5">
+                  {(["volume", "graduated"] as const).map((model) => (
+                    <button
+                      key={model}
+                      onClick={() => onPricingModelChange(model)}
+                      className={cn(
+                        "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-all",
+                        pricingModel === model
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      )}
+                    >
+                      {model === "volume" ? "Volume" : "Graduated"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </nav>
 

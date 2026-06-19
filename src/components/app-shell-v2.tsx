@@ -16,9 +16,9 @@ import { AccountVerificationPage } from "./account-verification-page";
 import { BankAccountsPage } from "./bank-accounts-page";
 import { PaymentMethodsSetupPage } from "./payment-methods-setup-page";
 import { OverviewPage } from "./overview-page";
-import { SetupGuideFloating, SetupGuidePill } from "./setup-guide-floating";
-import { SetupGuideSidePanel } from "./setup-guide-sidepanel";
-import { SETUP_GROUPS, type SetupGroup, type SetupGuideVariant } from "@/lib/setup-guide-data";
+import { SETUP_GROUPS, type SetupGroup } from "@/lib/setup-guide-data";
+import { UsagePage } from "./usage-page";
+import { BillingPage } from "./billing-page";
 
 export function AppShellV2() {
   const [activeTab, setActiveTab] = React.useState<TabId>("payments");
@@ -27,13 +27,8 @@ export function AppShellV2() {
     tabDefaults.payments
   );
   const [agentOpen, setAgentOpen] = React.useState(false);
+  const [pricingModel, setPricingModel] = React.useState<"volume" | "graduated">("graduated");
 
-  // Setup guide state — lifted here so the floating widget persists across pages
-  const [setupGuideVariant, setSetupGuideVariant] = React.useState<SetupGuideVariant>("floating");
-  const [setupGuideOpen, setSetupGuideOpen] = React.useState(false);
-
-  // Spotlight — shown once on first Overview visit in floating mode
-  const [spotlightSeen, setSpotlightSeen] = React.useState(false);
 
   // Account verification status
   const [verificationStatus, setVerificationStatus] = React.useState<"idle" | "verifying" | "verified">("idle");
@@ -68,11 +63,6 @@ export function AppShellV2() {
     );
   };
 
-  const handleVariantChange = (v: SetupGuideVariant) => {
-    setSetupGuideVariant(v);
-    if (v === "floating") setSpotlightSeen(false); // re-show spotlight when switching back
-  };
-
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
     setSubView(null);
@@ -105,11 +95,10 @@ export function AppShellV2() {
     // Parse optional anchor (e.g. "Payment Methods#local-qr")
     const [page, anchor] = pageWithAnchor.split("#");
     setPaymentMethodsAnchor(anchor ?? "");
-    // Close the setup guide panel when navigating
-    setSetupGuideOpen(false);
     // If it's a settings page, switch to settings view
     const settingsPages = [
       "Business Details", "Account Verification", "Bank Accounts",
+      "Usage", "Billing",
       "Staff", "Audit Logs", "Checkout Customisation", "Notifications",
       "Email Templates", "Partners", "Platform",
     ];
@@ -185,6 +174,8 @@ export function AppShellV2() {
         onSubViewChange={handleSubViewChange}
         onSelectPage={setSelectedPage}
         onOpenAgent={() => setAgentOpen(true)}
+        pricingModel={pricingModel}
+        onPricingModelChange={setPricingModel}
       />
       <main className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {showCharges ? (
@@ -199,95 +190,19 @@ export function AppShellV2() {
           <RecurringBillingEmptyPage onActivate={() => handleNavigate("Account Verification")} pageTitle={selectedPage} />
         ) : showOverview ? (
           <OverviewPage
-            variant={setupGuideVariant}
-            onVariantChange={handleVariantChange}
-            onOpenSetupGuide={() => setSetupGuideOpen(true)}
             onNavigate={handleNavigateWithVerificationTracking}
             setupGroups={setupGroups}
           />
+        ) : selectedPage === "Usage" ? (
+          <UsagePage pricingModel={pricingModel} />
+        ) : selectedPage === "Billing" ? (
+          <BillingPage pricingModel={pricingModel} />
         ) : (
           <DummyPage title={selectedPage} />
         )}
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} />
 
-      {/* ── Setup Guide: Version A — Floating widget ── */}
-      {setupGuideVariant === "floating" && (() => {
-        const showSpotlight = showOverview && !spotlightSeen;
-        const dismissSpotlight = () => {
-          setSpotlightSeen(true);
-          setSetupGuideOpen(false);
-        };
-        return (
-          <>
-            {/* Spotlight overlay */}
-            {showSpotlight && (
-              <>
-                {/* Gradient wash rising from the bottom — stronger blue/indigo tones */}
-                <div
-                  className="fixed inset-0 z-40 pointer-events-auto"
-                  style={{
-                    background: `
-                      linear-gradient(to top,
-                        rgba(191, 219, 254, 0.99) 0%,
-                        rgba(199, 210, 254, 0.97) 20%,
-                        rgba(224, 231, 255, 0.90) 40%,
-                        rgba(238, 242, 255, 0.60) 60%,
-                        rgba(238, 242, 255, 0.15) 75%,
-                        transparent 88%
-                      ),
-                      radial-gradient(ellipse 80% 50% at 60% 100%, rgba(99, 102, 241, 0.45) 0%, transparent 70%)
-                    `,
-                  }}
-                  onClick={dismissSpotlight}
-                />
-
-                {/* Callout text — large, dark, front and centre in the gradient zone */}
-                <div className="fixed bottom-10 right-[360px] z-50 max-w-sm pointer-events-auto">
-                  <h3 className="text-3xl font-bold text-slate-900 leading-tight mb-3">
-                    Let's complete your<br />account setup
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed mb-5">
-                    A few quick steps to unlock payments, payouts,<br />and the full HitPay experience.
-                  </p>
-                  <button
-                    onClick={dismissSpotlight}
-                    className="rounded-lg border border-slate-400 bg-white px-5 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
-                  >
-                    Got it
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* The widget itself — always expanded during spotlight */}
-            {(showSpotlight || setupGuideOpen) ? (
-              <SetupGuideFloating
-                open={true}
-                onClose={showSpotlight ? dismissSpotlight : () => setSetupGuideOpen(false)}
-                onNavigate={handleNavigate}
-                groups={setupGroups}
-              />
-            ) : (
-              <SetupGuidePill
-                onClick={() => setSetupGuideOpen(true)}
-                onNavigate={handleNavigateWithVerificationTracking}
-                groups={setupGroups}
-              />
-            )}
-          </>
-        );
-      })()}
-
-      {/* ── Setup Guide: Version B — Slide-in side panel ── */}
-      {setupGuideVariant === "panel" && (
-        <SetupGuideSidePanel
-          open={setupGuideOpen}
-          onClose={() => setSetupGuideOpen(false)}
-          onNavigate={handleNavigateWithVerificationTracking}
-          groups={setupGroups}
-        />
-      )}
 
       {/* ── Account Verification: full-screen overlay ── */}
       {showVerification && (
