@@ -319,25 +319,46 @@ function TierBreakdown({
 function UsageFeatureCard({
   feature,
   pricingModel,
+  onCancel,
 }: {
   feature: UsageFeature;
   pricingModel: PricingModel;
+  onCancel?: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const Icon = feature.icon;
   const currentTier = getCurrentTier(feature.currentUsage, feature.tiers);
   const currentCost = computeCost(feature.currentUsage, feature.tiers, pricingModel);
 
+  const handleCancel = () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel ${feature.name}? You can reactivate it anytime in Add-ons.`
+    );
+    if (confirmed && onCancel) {
+      onCancel();
+    }
+  };
+
   return (
     <div className="rounded-xl border border-slate-200 p-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-          <Icon className="h-4 w-4 text-slate-600" />
+      <div className="flex items-center gap-3 mb-2 justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
+            <Icon className="h-4 w-4 text-slate-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            {feature.name}
+          </h3>
         </div>
-        <h3 className="text-sm font-semibold text-slate-900">
-          {feature.name}
-        </h3>
+        {onCancel && (
+          <button
+            onClick={handleCancel}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
       {/* Usage count + projected cost */}
@@ -462,8 +483,17 @@ function AddonCard({
 
 /* ── Active addon card ── */
 
-function ActiveAddonCard({ addon }: { addon: MonthlyAddon }) {
+function ActiveAddonCard({ addon, onCancel }: { addon: MonthlyAddon; onCancel?: () => void }) {
   const Icon = addon.icon;
+
+  const handleCancel = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this subscription? You can reactivate it anytime in Add-ons."
+    );
+    if (confirmed && onCancel) {
+      onCancel();
+    }
+  };
 
   return (
     <div className="flex items-center gap-4 rounded-xl border border-slate-200 px-5 py-4">
@@ -478,11 +508,19 @@ function ActiveAddonCard({ addon }: { addon: MonthlyAddon }) {
         <p className="mt-0.5 text-sm text-slate-500">{addon.description}</p>
         <p className="mt-0.5 text-sm text-slate-600">{addon.priceLabel}</p>
       </div>
-      <div className="shrink-0 text-right">
-        <p className="text-xs text-slate-400">Projected cost</p>
-        <p className="text-lg font-semibold tabular-nums text-slate-900">
-          {addon.price}.00
-        </p>
+      <div className="shrink-0 flex items-center gap-3">
+        <div className="text-right">
+          <p className="text-xs text-slate-400">Projected cost</p>
+          <p className="text-lg font-semibold tabular-nums text-slate-900">
+            {addon.price}.00
+          </p>
+        </div>
+        <button
+          onClick={handleCancel}
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
@@ -666,7 +704,7 @@ export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
     "SMS receipts": false,
   });
   const [addonSubscriptions, setAddonSubscriptions] = React.useState<Record<string, boolean>>({
-    quickbooks: false,
+    quickbooks: true,
     egiro: false,
   });
   const [subscribeModalAddon, setSubscribeModalAddon] = React.useState<MonthlyAddon | null>(null);
@@ -741,11 +779,30 @@ export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
             <div className="space-y-4">
               {USAGE_FEATURES.filter((f) => subscriptions[f.name] !== false).map(
                 (feature) => (
-                  <UsageFeatureCard key={feature.name} feature={feature} pricingModel={pricingModel} />
+                  <UsageFeatureCard
+                    key={feature.name}
+                    feature={feature}
+                    pricingModel={pricingModel}
+                    onCancel={() =>
+                      setSubscriptions((prev) => ({
+                        ...prev,
+                        [feature.name]: false,
+                      }))
+                    }
+                  />
                 )
               )}
               {activeAddons.map((addon) => (
-                <ActiveAddonCard key={addon.id} addon={addon} />
+                <ActiveAddonCard
+                  key={addon.id}
+                  addon={addon}
+                  onCancel={() =>
+                    setAddonSubscriptions((prev) => ({
+                      ...prev,
+                      [addon.id]: false,
+                    }))
+                  }
+                />
               ))}
             </div>
           </div>

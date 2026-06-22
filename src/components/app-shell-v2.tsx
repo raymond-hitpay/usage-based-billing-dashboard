@@ -19,6 +19,8 @@ import { OverviewPage } from "./overview-page";
 import { SETUP_GROUPS, type SetupGroup } from "@/lib/setup-guide-data";
 import { UsagePage } from "./usage-page";
 import { BillingPage } from "./billing-page";
+import { InvoicingPage } from "./invoicing-page";
+import { IntegrationsPage } from "./integrations-page";
 
 export function AppShellV2() {
   const [activeTab, setActiveTab] = React.useState<TabId>("payments");
@@ -152,6 +154,11 @@ export function AppShellV2() {
     subView === null &&
     RECURRING_PAGES.includes(selectedPage);
 
+  const showIntegrations =
+    activeTab === "payments" &&
+    subView === null &&
+    selectedPage === "Integrations";
+
   const showVerification = selectedPage === "Account Verification";
 
   // Track where to go back to when closing verification
@@ -185,7 +192,7 @@ export function AppShellV2() {
         ) : showStaticQRs ? (
           <StaticQRsEmptyPage onActivate={() => handleNavigate("Account Verification")} />
         ) : showInvoicing ? (
-          <InvoicingEmptyPage onActivate={() => handleNavigate("Account Verification")} pageTitle={selectedPage} />
+          <InvoicingPage />
         ) : showRecurringBilling ? (
           <RecurringBillingEmptyPage onActivate={() => handleNavigate("Account Verification")} pageTitle={selectedPage} />
         ) : showOverview ? (
@@ -197,6 +204,8 @@ export function AppShellV2() {
           <UsagePage pricingModel={pricingModel} />
         ) : selectedPage === "Billing" ? (
           <BillingPage pricingModel={pricingModel} />
+        ) : showIntegrations ? (
+          <IntegrationsPage />
         ) : (
           <DummyPage title={selectedPage} />
         )}

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# superpowers development files (task reports, progress tracking, etc.)
+.superpowers/
+docs/superpowers/plans/
