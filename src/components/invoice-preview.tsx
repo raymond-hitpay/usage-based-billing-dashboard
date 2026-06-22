@@ -287,22 +287,56 @@ const MOCK_INVOICES_VOLUME: Record<string, InvoiceData> = {
   },
 };
 
-/* ── Expandable line item row ── */
+/* ── Line item row ── */
 
-function LineItemRow({ item }: { item: InvoiceLineItem }) {
+function TierBreakdownTable({ breakdown }: { breakdown: TierBreakdownItem[] }) {
+  return (
+    <tr>
+      <td colSpan={4} className="pb-2 pt-0">
+        <div className="ml-6 pl-0">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-[10px] text-slate-400 uppercase tracking-wider">
+                <th className="pb-1.5 pt-1 text-left font-medium w-16">Tier</th>
+                <th className="pb-1.5 pt-1 text-left font-medium">Range</th>
+                <th className="pb-1.5 pt-1 text-right font-medium">Rate</th>
+                <th className="pb-1.5 pt-1 text-right font-medium w-16">Units</th>
+                <th className="pb-1.5 pt-1 text-right font-medium w-20">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdown.map((tb) => (
+                <tr key={tb.tier} className="border-t border-slate-100">
+                  <td className="py-1 text-slate-400 font-medium">{tb.tier}</td>
+                  <td className="py-1 tabular-nums text-slate-400">{tb.range}</td>
+                  <td className="py-1 text-right tabular-nums text-slate-500">{tb.rate}</td>
+                  <td className="py-1 text-right tabular-nums text-slate-500">{tb.units.toLocaleString()}</td>
+                  <td className="py-1 text-right tabular-nums text-slate-600">{tb.cost}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function LineItemRow({ item, alwaysExpanded }: { item: InvoiceLineItem; alwaysExpanded?: boolean }) {
   const [expanded, setExpanded] = React.useState(false);
   const hasBreakdown = !!item.tierBreakdown?.length;
+  const showBreakdown = alwaysExpanded ? hasBreakdown : expanded;
 
   return (
     <>
       <tr
-        className={hasBreakdown ? "border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50" : "border-b border-slate-100"}
-        onClick={hasBreakdown ? () => setExpanded(!expanded) : undefined}
+        className={hasBreakdown && !alwaysExpanded ? "border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50" : "border-b border-slate-100"}
+        onClick={hasBreakdown && !alwaysExpanded ? () => setExpanded(!expanded) : undefined}
       >
         <td className="py-3 font-medium text-slate-700">
           <span className="flex items-center gap-1.5">
             {item.description}
-            {hasBreakdown && (
+            {hasBreakdown && !alwaysExpanded && (
               expanded
                 ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
                 : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
@@ -317,35 +351,8 @@ function LineItemRow({ item }: { item: InvoiceLineItem }) {
           {item.amount}
         </td>
       </tr>
-      {expanded && item.tierBreakdown && (
-        <tr>
-          <td colSpan={4} className="pb-3">
-            <div className="ml-4 mr-2 rounded-lg border border-slate-100 bg-slate-50/50 overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[10px] text-slate-400 uppercase tracking-wide">
-                    <th className="px-3 py-1.5 text-left font-medium">Tier</th>
-                    <th className="px-3 py-1.5 text-left font-medium">Range</th>
-                    <th className="px-3 py-1.5 text-right font-medium">Rate</th>
-                    <th className="px-3 py-1.5 text-right font-medium">Units</th>
-                    <th className="px-3 py-1.5 text-right font-medium">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {item.tierBreakdown.map((tb) => (
-                    <tr key={tb.tier} className="border-t border-slate-100">
-                      <td className="px-3 py-1.5 font-medium text-slate-600">{tb.tier}</td>
-                      <td className="px-3 py-1.5 tabular-nums text-slate-500">{tb.range}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-slate-500">{tb.rate}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-slate-600">{tb.units.toLocaleString()}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums font-medium text-slate-700">{tb.cost}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
+      {showBreakdown && item.tierBreakdown && (
+        <TierBreakdownTable breakdown={item.tierBreakdown} />
       )}
     </>
   );
@@ -466,7 +473,7 @@ export function InvoicePreview({
             </thead>
             <tbody>
               {invoice.lineItems.map((item) => (
-                <LineItemRow key={item.description} item={item} />
+                <LineItemRow key={item.description} item={item} alwaysExpanded={pricingModel === "graduated"} />
               ))}
             </tbody>
           </table>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Banknote, BookOpen, Check, ChevronDown, ChevronUp, Landmark, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
+import { Banknote, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Landmark, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,10 +21,30 @@ interface UsageFeature {
   priceLabel: string;
   currentUsage: number;
   unitLabel: string;
+  pricingUnit: string; // singular unit name used in pricing display, e.g. "transaction", "send"
   cycleStart: string; // e.g. "Jun 1, 2026"
   cycleEnd: string;   // e.g. "Jun 30, 2026"
   tiers: Tier[];
 }
+
+/* ── Billing cycles ── */
+
+interface BillingCycle {
+  label: string;
+  start: string;
+  end: string;
+  cashUsage: number;
+  smsUsage: number;
+}
+
+const BILLING_CYCLES: BillingCycle[] = [
+  { label: "Jun 2026", start: "Jun 1, 2026", end: "Jun 30, 2026", cashUsage: 1_240, smsUsage: 328 },
+  { label: "May 2026", start: "May 1, 2026", end: "May 31, 2026", cashUsage: 980, smsUsage: 210 },
+  { label: "Apr 2026", start: "Apr 1, 2026", end: "Apr 30, 2026", cashUsage: 420, smsUsage: 95 },
+  { label: "Mar 2026", start: "Mar 1, 2026", end: "Mar 31, 2026", cashUsage: 0, smsUsage: 0 },
+  { label: "Feb 2026", start: "Feb 1, 2026", end: "Feb 28, 2026", cashUsage: 8_200, smsUsage: 3_100 },
+  { label: "Jan 2026", start: "Jan 1, 2026", end: "Jan 31, 2026", cashUsage: 140, smsUsage: 62 },
+];
 
 const CASH_TIERS: Tier[] = [
   { name: "Tier 1", min: 1, max: 50, priceLabel: "Free" },
@@ -93,39 +113,43 @@ const MONTHLY_ADDONS: MonthlyAddon[] = [
   },
 ];
 
-const USAGE_FEATURES: UsageFeature[] = [
+const USAGE_FEATURE_TEMPLATES = [
   {
     name: "Cash transactions",
     icon: Banknote,
     description: "Per-transaction charges for cash payments processed through HitPay.",
     priceLabel: "from $0.01 · per transaction",
-    currentUsage: 1_240,
     unitLabel: "transactions",
-    cycleStart: "Jun 1, 2026",
-    cycleEnd: "Jun 30, 2026",
+    pricingUnit: "transaction",
     tiers: CASH_TIERS,
+    cycleUsageKey: "cashUsage" as const,
   },
   {
     name: "SMS receipts",
     icon: MessageSquare,
     description: "Send receipts via SMS to your customers.",
     priceLabel: "from $0.025 · per SMS",
-    currentUsage: 328,
     unitLabel: "receipts",
-    cycleStart: "Jun 1, 2026",
-    cycleEnd: "Jun 30, 2026",
+    pricingUnit: "send",
     tiers: SMS_TIERS,
+    cycleUsageKey: "smsUsage" as const,
   },
 ];
 
-/* ── Helpers ── */
-
 const TIER_COLORS = [
-  "bg-emerald-400", // Tier 1 (free)
-  "bg-blue-400",    // Tier 2
-  "bg-violet-400",  // Tier 3
-  "bg-amber-400",   // Tier 4
-  "bg-slate-400",   // Tier 5
+  "bg-emerald-400",
+  "bg-blue-400",
+  "bg-violet-400",
+  "bg-amber-400",
+  "bg-slate-400",
+];
+
+const TIER_BORDER_COLORS = [
+  "#34d399", // emerald-400
+  "#60a5fa", // blue-400
+  "#a78bfa", // violet-400
+  "#fbbf24", // amber-400
+  "#94a3b8", // slate-400
 ];
 
 const TIER_COLORS_MUTED = [
@@ -135,6 +159,24 @@ const TIER_COLORS_MUTED = [
   "bg-amber-100",
   "bg-slate-100",
 ];
+
+function getUsageFeatures(cycle: BillingCycle): UsageFeature[] {
+  return USAGE_FEATURE_TEMPLATES.map((t) => ({
+    name: t.name,
+    icon: t.icon,
+    description: t.description,
+    priceLabel: t.priceLabel,
+    currentUsage: cycle[t.cycleUsageKey],
+    unitLabel: t.unitLabel,
+    pricingUnit: t.pricingUnit,
+    cycleStart: cycle.start,
+    cycleEnd: cycle.end,
+    tiers: t.tiers,
+  }));
+}
+
+/* ── Helpers ── */
+
 
 function getCurrentTier(usage: number, tiers: Tier[]): Tier {
   for (let i = tiers.length - 1; i >= 0; i--) {
@@ -183,69 +225,161 @@ function computeCost(usage: number, tiers: Tier[], model: PricingModel): number 
     : computeGraduatedCost(usage, tiers);
 }
 
+/** For each tier, how many units were consumed and what fill % that is within the segment. */
+function computeGraduatedSegmentFills(usage: number, tiers: Tier[]) {
+  let remaining = usage;
+  return tiers.map((tier, i) => {
+    let capacity: number;
+    if (tier.max !== null) {
+      capacity = tier.max - tier.min + 1;
+    } else {
+      const prev = tiers[i - 1];
+      const prevprev = i >= 2 ? tiers[i - 2] : null;
+      capacity = prev.max! - (prevprev ? prevprev.max! : 0);
+    }
+    const consumed = Math.min(remaining, capacity);
+    const fillPct = (consumed / capacity) * 100;
+    remaining -= consumed;
+    return { tier, consumed, fillPct };
+  });
+}
+
 /* ── Tier progress bar ── */
+
+/** Equal-width fill: each tier occupies 1/n of the bar. */
+function computeEqualWidthFill(usage: number, tiers: Tier[]): number {
+  const segWidth = 100 / tiers.length;
+  let fill = 0;
+  let remaining = usage;
+  for (let i = 0; i < tiers.length; i++) {
+    const tier = tiers[i];
+    let capacity: number;
+    if (tier.max !== null) {
+      capacity = tier.max - tier.min + 1;
+    } else {
+      const prev = tiers[i - 1];
+      const prevprev = i >= 2 ? tiers[i - 2] : null;
+      capacity = prev.max! - (prevprev ? prevprev.max! : 0);
+    }
+    if (remaining <= 0) break;
+    const used = Math.min(remaining, capacity);
+    fill += (used / capacity) * segWidth;
+    remaining -= used;
+  }
+  return Math.min(fill, 100);
+}
 
 function TierProgressBar({
   currentUsage,
   tiers,
+  pricingModel,
 }: {
   currentUsage: number;
   tiers: Tier[];
+  pricingModel: PricingModel;
 }) {
-  // For display purposes, cap the last tier at a visual max
-  const lastFiniteTier = tiers.filter((t) => t.max !== null);
-  const visualMax =
-    lastFiniteTier.length > 0
-      ? lastFiniteTier[lastFiniteTier.length - 1].max! * 1.4
-      : 7_000;
+  const currentTier = getCurrentTier(currentUsage, tiers);
+  const currentTierIndex = tiers.findIndex((t) => t.name === currentTier.name);
 
-  const segments = tiers.map((tier, i) => {
-    const segStart = tier.min - 1; // 0-indexed start
-    const segEnd = tier.max ?? visualMax;
-    const segWidth = segEnd - segStart;
+  if (pricingModel === "graduated") {
+    const segments = computeGraduatedSegmentFills(currentUsage, tiers);
 
-    // How much of this segment is filled
-    const filled = Math.max(0, Math.min(currentUsage - segStart, segWidth));
-    const fillPercent = segWidth > 0 ? (filled / segWidth) * 100 : 0;
+    return (
+      <div className="w-full">
+        {/* Multi-colored bar: each segment shows consumption within that tier */}
+        <div className="flex h-2 w-full rounded-full overflow-hidden">
+          {segments.map(({ tier, fillPct }, i) => (
+            <div key={tier.name} className={cn("flex-1 relative", TIER_COLORS_MUTED[i])}>
+              <div
+                className={cn("absolute inset-y-0 left-0 transition-all duration-500", TIER_COLORS[i])}
+                style={{ width: `${fillPct}%` }}
+              />
+            </div>
+          ))}
+        </div>
 
-    // Width of this segment relative to visual max
-    const widthPercent = (segWidth / visualMax) * 100;
+        {/* Tier label segments */}
+        <div className="mt-1.5 flex w-full">
+          {segments.map(({ tier, consumed, fillPct }, i) => {
+            const isCurrent = tier.name === currentTier.name;
+            const isEmpty = consumed === 0;
+            const rangeLabel = tier.max
+              ? `${tier.min.toLocaleString()}–${tier.max.toLocaleString()}`
+              : `${tier.min.toLocaleString()}+`;
+            return (
+              <div
+                key={tier.name}
+                className={cn(
+                  "flex-1 flex flex-col items-center py-1.5 text-center border-t-2",
+                  i > 0 && "border-l border-slate-100",
+                  isCurrent ? "bg-slate-50" : "border-t-transparent"
+                )}
+                style={!isEmpty ? { borderTopColor: TIER_BORDER_COLORS[i] } : undefined}
+              >
+                <span className={cn("text-[10px] font-semibold leading-tight",
+                  isEmpty ? "text-slate-300" : isCurrent ? "text-slate-800" : "text-slate-500"
+                )}>
+                  {tier.name}
+                </span>
+                <span className={cn("text-[9px] tabular-nums leading-tight mt-0.5",
+                  isEmpty ? "text-slate-200" : isCurrent ? "text-slate-500" : "text-slate-400"
+                )}>
+                  {rangeLabel} · {tier.priceLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
-    return { tier, index: i, widthPercent, fillPercent };
-  });
+  // Volume: single-color fill
+  const fillPercent = computeEqualWidthFill(currentUsage, tiers);
+  const fillColor = TIER_BORDER_COLORS[currentTierIndex] ?? "#60a5fa";
+  const segWidth = 100 / tiers.length;
 
   return (
-    <div className="flex w-full gap-0.5">
-      {segments.map(({ tier, index, widthPercent, fillPercent }) => {
-        const rangeLabel = tier.max
-          ? `${tier.min.toLocaleString()} – ${tier.max.toLocaleString()}`
-          : `${tier.min.toLocaleString()}+`;
-        const tooltip = `${tier.name}: ${rangeLabel} · ${tier.priceLabel}`;
-
-        return (
+    <div className="w-full">
+      <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 transition-all duration-500"
+          style={{ width: `${fillPercent}%`, backgroundColor: fillColor }}
+        />
+        {tiers.slice(0, -1).map((_, i) => (
           <div
-            key={tier.name}
-            className={cn(
-              "group relative h-2 rounded-full overflow-hidden cursor-default",
-              TIER_COLORS_MUTED[index]
-            )}
-            style={{ width: `${widthPercent}%` }}
-          >
+            key={i}
+            className="absolute inset-y-0 w-px bg-white/70"
+            style={{ left: `${(i + 1) * segWidth}%` }}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex w-full">
+        {tiers.map((tier, i) => {
+          const isCurrent = tier.name === currentTier.name;
+          const rangeLabel = tier.max
+            ? `${tier.min.toLocaleString()}–${tier.max.toLocaleString()}`
+            : `${tier.min.toLocaleString()}+`;
+          return (
             <div
+              key={tier.name}
               className={cn(
-                "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
-                TIER_COLORS[index]
+                "flex-1 flex flex-col items-center py-1.5 text-center border-t-2 transition-colors",
+                i > 0 && "border-l border-slate-100",
+                isCurrent ? "bg-slate-50" : "border-t-transparent"
               )}
-              style={{ width: `${fillPercent}%` }}
-            />
-            {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-              {tooltip}
-              <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+              style={isCurrent ? { borderTopColor: fillColor } : undefined}
+            >
+              <span className={cn("text-[10px] font-semibold leading-tight", isCurrent ? "text-slate-800" : "text-slate-400")}>
+                {tier.name}
+              </span>
+              <span className={cn("text-[9px] tabular-nums leading-tight mt-0.5", isCurrent ? "text-slate-500" : "text-slate-300")}>
+                {rangeLabel}
+              </span>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -255,12 +389,80 @@ function TierProgressBar({
 function TierBreakdown({
   tiers,
   currentUsage,
+  pricingModel,
 }: {
   tiers: Tier[];
   currentUsage: number;
+  pricingModel: PricingModel;
 }) {
   const currentTier = getCurrentTier(currentUsage, tiers);
 
+  if (pricingModel === "graduated") {
+    const segments = computeGraduatedSegmentFills(currentUsage, tiers);
+    const tierRows = segments.map(({ tier, consumed }) => ({
+      tier,
+      consumed,
+      cost: consumed * (RATES[tier.priceLabel] ?? 0),
+    }));
+    const totalCost = tierRows.reduce((sum, r) => sum + r.cost, 0);
+
+    return (
+      <div className="mt-4 rounded-lg border border-slate-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-xs text-slate-500">
+              <th className="px-4 py-2 text-left font-medium">Tier</th>
+              <th className="px-4 py-2 text-left font-medium">Range</th>
+              <th className="px-4 py-2 text-right font-medium">Rate</th>
+              <th className="px-4 py-2 text-right font-medium">Units used</th>
+              <th className="px-4 py-2 text-right font-medium">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tierRows.map(({ tier, consumed, cost }, i) => {
+              const isCurrent = tier.name === currentTier.name;
+              const isEmpty = consumed === 0;
+              const rangeLabel = tier.max
+                ? `${tier.min.toLocaleString()} – ${tier.max.toLocaleString()}`
+                : `${tier.min.toLocaleString()}+`;
+              return (
+                <tr
+                  key={tier.name}
+                  className={cn(
+                    "border-t border-slate-100",
+                    isCurrent && "bg-blue-50/60",
+                    isEmpty && "opacity-40"
+                  )}
+                >
+                  <td className="px-4 py-2 text-slate-700">
+                    <span className="flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full", isEmpty ? "bg-slate-200" : TIER_COLORS[i])} />
+                      {tier.name}
+                      {isCurrent && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                          Current
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 tabular-nums text-slate-600">{rangeLabel}</td>
+                  <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-900">{tier.priceLabel}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                    {consumed > 0 ? consumed.toLocaleString() : "–"}
+                  </td>
+                  <td className={cn("px-4 py-2 text-right font-medium tabular-nums", isEmpty ? "text-slate-300" : "text-slate-900")}>
+                    {consumed === 0 ? "–" : cost === 0 ? "Free" : `S$${cost.toFixed(2)}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // Volume: simple Tier / Range / Rate table
   return (
     <div className="mt-4 rounded-lg border border-slate-100 overflow-hidden">
       <table className="w-full text-sm">
@@ -277,20 +479,14 @@ function TierBreakdown({
             const rangeLabel = tier.max
               ? `${tier.min.toLocaleString()} – ${tier.max.toLocaleString()}`
               : `${tier.min.toLocaleString()}+`;
-
             return (
               <tr
                 key={tier.name}
-                className={cn(
-                  "border-t border-slate-100",
-                  isCurrent && "bg-blue-50/60"
-                )}
+                className={cn("border-t border-slate-100", isCurrent && "bg-blue-50/60")}
               >
                 <td className="px-4 py-2 text-slate-700">
                   <span className="flex items-center gap-2">
-                    <span
-                      className={cn("h-2 w-2 rounded-full", TIER_COLORS[i])}
-                    />
+                    <span className={cn("h-2 w-2 rounded-full", TIER_COLORS[i])} />
                     {tier.name}
                     {isCurrent && (
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
@@ -299,12 +495,8 @@ function TierBreakdown({
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-2 tabular-nums text-slate-600">
-                  {rangeLabel}
-                </td>
-                <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-900">
-                  {tier.priceLabel}
-                </td>
+                <td className="px-4 py-2 tabular-nums text-slate-600">{rangeLabel}</td>
+                <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-900">{tier.priceLabel}</td>
               </tr>
             );
           })}
@@ -361,16 +553,25 @@ function UsageFeatureCard({
         )}
       </div>
 
-      {/* Usage count + projected cost */}
-      <div className="mb-3 flex items-baseline justify-between">
+      {/* Stats row: usage · current tier · projected cost */}
+      <div className="mb-3 flex items-start justify-between">
         <div>
-          <span className="text-lg font-semibold tabular-nums text-slate-900">
+          <p className="text-xs text-slate-400">{feature.unitLabel.charAt(0).toUpperCase() + feature.unitLabel.slice(1)} this cycle</p>
+          <p className="text-lg font-semibold tabular-nums text-slate-900">
             {feature.currentUsage.toLocaleString()}
-          </span>
-          <span className="ml-1.5 text-sm text-slate-500">
-            {feature.unitLabel} this cycle
-          </span>
+          </p>
         </div>
+        {pricingModel === "volume" && (
+          <div className="text-center">
+            <p className="text-xs text-slate-400">Current tier &amp; pricing</p>
+            <p className="text-sm font-semibold text-slate-900">
+              {currentTier.priceLabel === "Free"
+                ? `${currentTier.name} (Free)`
+                : `${currentTier.name} (${currentTier.priceLabel.replace("/unit", `/ ${feature.pricingUnit}`)})`
+              }
+            </p>
+          </div>
+        )}
         <div className="text-right">
           <p className="text-xs text-slate-400">Projected cost</p>
           <p className="text-lg font-semibold tabular-nums text-slate-900">
@@ -383,33 +584,8 @@ function UsageFeatureCard({
       <TierProgressBar
         currentUsage={feature.currentUsage}
         tiers={feature.tiers}
+        pricingModel={pricingModel}
       />
-
-      {/* Current tier label */}
-      <p className="mt-2 text-sm text-slate-500">
-        {pricingModel === "volume" ? (
-          <>
-            All units at{" "}
-            <span className="font-medium text-slate-700">
-              {currentTier.priceLabel}
-            </span>
-            <span className="ml-1 text-xs text-slate-400">
-              (after {feature.tiers[0].max ?? 0} free)
-            </span>
-          </>
-        ) : (
-          <>
-            Currently in{" "}
-            <span className="font-medium text-slate-700">
-              {currentTier.name}
-            </span>
-            {" · "}
-            <span className="font-medium text-slate-700">
-              {currentTier.priceLabel}
-            </span>
-          </>
-        )}
-      </p>
 
       {/* Expand / collapse tier breakdown */}
       <button
@@ -428,6 +604,7 @@ function UsageFeatureCard({
         <TierBreakdown
           tiers={feature.tiers}
           currentUsage={feature.currentUsage}
+          pricingModel={pricingModel}
         />
       )}
     </div>
@@ -699,6 +876,7 @@ function UsageFeatureNotSubscribed({
 
 export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
   const [refreshing, setRefreshing] = React.useState(false);
+  const [cycleIndex, setCycleIndex] = React.useState(0); // 0 = most recent
   const [subscriptions, setSubscriptions] = React.useState<Record<string, boolean>>({
     "Cash transactions": true,
     "SMS receipts": false,
@@ -708,6 +886,11 @@ export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
     egiro: false,
   });
   const [subscribeModalAddon, setSubscribeModalAddon] = React.useState<MonthlyAddon | null>(null);
+
+  const currentCycle = BILLING_CYCLES[cycleIndex];
+  const USAGE_FEATURES = getUsageFeatures(currentCycle);
+  const isLatestCycle = cycleIndex === 0;
+  const isOldestCycle = cycleIndex === BILLING_CYCLES.length - 1;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -743,29 +926,52 @@ export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-            <span>Last updated: less than a minute ago</span>
-            <button
-              onClick={handleRefresh}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors"
-              aria-label="Refresh"
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5",
-                  refreshing && "animate-spin"
-                )}
-              />
-            </button>
+            {isLatestCycle && <span>Last updated: less than a minute ago</span>}
+            {isLatestCycle && (
+              <button
+                onClick={handleRefresh}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors"
+                aria-label="Refresh"
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    refreshing && "animate-spin"
+                  )}
+                />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
-        {/* Billing cycle — shared across all features */}
+        {/* Billing cycle selector */}
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
           <span className="font-medium text-slate-700">Billing cycle:</span>
-          <span>{USAGE_FEATURES[0].cycleStart} – {USAGE_FEATURES[0].cycleEnd}</span>
+          <button
+            onClick={() => setCycleIndex((i) => i + 1)}
+            disabled={isOldestCycle}
+            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Previous billing cycle"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+          <span className="tabular-nums">{currentCycle.start} – {currentCycle.end}</span>
+          <button
+            onClick={() => setCycleIndex((i) => i - 1)}
+            disabled={isLatestCycle}
+            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Next billing cycle"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
+          {isLatestCycle && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              Current
+            </span>
+          )}
         </div>
 
         {/* ── Active Plans ── */}
