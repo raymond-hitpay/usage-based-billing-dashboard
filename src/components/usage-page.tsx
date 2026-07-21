@@ -998,7 +998,7 @@ export function UsagePage() {
       {/* Content */}
       <div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
         {/* Billing cycle selector */}
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+        {hasAnySubscription && <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
           <span className="font-medium text-slate-700">Billing cycle:</span>
           {hasAnySubscription && (
             <button
@@ -1026,7 +1026,7 @@ export function UsagePage() {
               Current
             </span>
           )}
-        </div>
+        </div>}
 
         <div className="divide-y divide-slate-100">
           {USAGE_FEATURES.map((feature) => (
