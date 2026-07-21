@@ -14,10 +14,10 @@ interface SubscribeCashModalProps {
 // Pricing tiers — must match MANUAL_PAYMENT_TIERS in usage-page.tsx
 const PRICING_TIERS = [
   { min: 1,    max: 10,       rate: 0,     label: "1–10 txns: Free" },
-  { min: 11,   max: 50,       rate: 0.10,  label: "11–50 txns: $0.10/txn" },
-  { min: 51,   max: 500,      rate: 0.02,  label: "51–500 txns: $0.02/txn" },
-  { min: 501,  max: 5000,     rate: 0.01,  label: "501–5,000 txns: $0.01/txn" },
-  { min: 5001, max: Infinity, rate: 0.005, label: "5,001+ txns: $0.005/txn" },
+  { min: 11,   max: 50,       rate: 0.10,  label: "11–50 txns: SGD 0.10/txn" },
+  { min: 51,   max: 500,      rate: 0.02,  label: "51–500 txns: SGD 0.02/txn" },
+  { min: 501,  max: 5000,     rate: 0.01,  label: "501–5,000 txns: SGD 0.01/txn" },
+  { min: 5001, max: Infinity, rate: 0.005, label: "5,001+ txns: SGD 0.005/txn" },
 ];
 
 function calculateEstimatedCost(volume: number): number {
@@ -112,7 +112,7 @@ export function SubscribeCashModal({
           {/* Estimated cost */}
           <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-slate-500">Estimated monthly cost</p>
-            <p className="text-lg font-bold text-slate-900">S${estimatedCost.toFixed(2)}</p>
+            <p className="text-lg font-bold text-slate-900">SGD {estimatedCost.toFixed(2)}</p>
           </div>
         </div>
 

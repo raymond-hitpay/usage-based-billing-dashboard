@@ -20,6 +20,7 @@ interface UsageFeature {
   icon: React.ComponentType<{ className?: string }>;
   description: string;
   enabledDescription: string;
+  learnMoreUrl?: string;
   priceLabel: string;
   currentUsage: number;
   unitLabel: string;
@@ -50,17 +51,17 @@ const BILLING_CYCLES: BillingCycle[] = [
 
 const MANUAL_PAYMENT_TIERS: Tier[] = [
   { name: "Free Tier", min: 1, max: 10, priceLabel: "Free" },
-  { name: "Tier 1", min: 11, max: 50, priceLabel: "$0.10/txn" },
-  { name: "Tier 2", min: 51, max: 500, priceLabel: "$0.02/txn" },
-  { name: "Tier 3", min: 501, max: 5_000, priceLabel: "$0.01/txn" },
-  { name: "Tier 4", min: 5_001, max: null, priceLabel: "$0.005/txn" },
+  { name: "Tier 1", min: 11, max: 50, priceLabel: "SGD 0.10/txn" },
+  { name: "Tier 2", min: 51, max: 500, priceLabel: "SGD 0.02/txn" },
+  { name: "Tier 3", min: 501, max: 5_000, priceLabel: "SGD 0.01/txn" },
+  { name: "Tier 4", min: 5_001, max: null, priceLabel: "SGD 0.005/txn" },
 ];
 
 const SMS_TIERS: Tier[] = [
   { name: "Free Tier", min: 1, max: 5, priceLabel: "Free" },
-  { name: "Tier 1", min: 6, max: 500, priceLabel: "$0.025/SMS" },
-  { name: "Tier 2", min: 501, max: 5_000, priceLabel: "$0.02/SMS" },
-  { name: "Tier 3", min: 5_001, max: null, priceLabel: "$0.01/SMS" },
+  { name: "Tier 1", min: 6, max: 500, priceLabel: "SGD 0.025/SMS" },
+  { name: "Tier 2", min: 501, max: 5_000, priceLabel: "SGD 0.02/SMS" },
+  { name: "Tier 3", min: 5_001, max: null, priceLabel: "SGD 0.01/SMS" },
 ];
 
 /* ── Monthly add-on types & data ── */
@@ -87,8 +88,8 @@ const MONTHLY_ADDONS: MonthlyAddon[] = [
     icon: Landmark,
     description:
       "Monthly setup fee plus per-authorization charges beyond your included limit.",
-    priceLabel: "$15.00 · per month + usage",
-    price: "$15",
+    priceLabel: "SGD 15.00 · per month + usage",
+    price: "SGD 15",
     priceUnit: "per month + usage",
     status: "coming_soon",
     type: "fixed",
@@ -101,7 +102,8 @@ const USAGE_FEATURE_TEMPLATES = [
     icon: Banknote,
     description: "Cash, offline, and bank transfer payments recorded via POS or Invoice.",
     enabledDescription: "When enabled, you can mark payments manually for payment methods outside of HitPay payment methods. Pricing decreases as your volume grows.",
-    priceLabel: "from $0.005 · per transaction",
+    learnMoreUrl: "https://docs.hitpayapp.com",
+    priceLabel: "from SGD 0.005 · per transaction",
     unitLabel: "transactions",
     pricingUnit: "transaction",
     tiers: MANUAL_PAYMENT_TIERS,
@@ -112,7 +114,7 @@ const USAGE_FEATURE_TEMPLATES = [
     icon: MessageSquare,
     description: "Send receipts via SMS to your customers.",
     enabledDescription: "When enabled, receipts are automatically sent via SMS to your customers after each transaction. Pricing decreases as your volume grows.",
-    priceLabel: "from $0.01 · per SMS",
+    priceLabel: "from SGD 0.01 · per SMS",
     unitLabel: "receipts",
     pricingUnit: "send",
     tiers: SMS_TIERS,
@@ -150,6 +152,7 @@ function getUsageFeatures(cycle: BillingCycle): UsageFeature[] {
     icon: t.icon,
     description: t.description,
     enabledDescription: t.enabledDescription,
+    learnMoreUrl: t.learnMoreUrl,
     priceLabel: t.priceLabel,
     currentUsage: cycle[t.cycleUsageKey],
     unitLabel: t.unitLabel,
@@ -174,13 +177,13 @@ type PricingModel = "volume" | "graduated";
 
 const RATES: Record<string, number> = {
   Free: 0,
-  "$0.10/txn": 0.10,
-  "$0.02/txn": 0.02,
-  "$0.01/txn": 0.01,
-  "$0.005/txn": 0.005,
-  "$0.025/SMS": 0.025,
-  "$0.02/SMS": 0.02,
-  "$0.01/SMS": 0.01,
+  "SGD 0.10/txn": 0.10,
+  "SGD 0.02/txn": 0.02,
+  "SGD 0.01/txn": 0.01,
+  "SGD 0.005/txn": 0.005,
+  "SGD 0.025/SMS": 0.025,
+  "SGD 0.02/SMS": 0.02,
+  "SGD 0.01/SMS": 0.01,
 };
 
 /** Graduated cost: each unit is charged at the rate of the tier it falls into. */
@@ -439,7 +442,7 @@ function TierBreakdown({
                     {consumed > 0 ? consumed.toLocaleString() : "–"}
                   </td>
                   <td className={cn("px-4 py-2 text-right font-medium tabular-nums", isEmpty ? "text-slate-300" : "text-slate-900")}>
-                    {consumed === 0 ? "–" : cost === 0 ? "Free" : `S$${cost.toFixed(2)}`}
+                    {consumed === 0 ? "–" : cost === 0 ? "Free" : `SGD ${cost.toFixed(2)}`}
                   </td>
                 </tr>
               );
@@ -448,7 +451,7 @@ function TierBreakdown({
               <td colSpan={3} />
               <td className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Total</td>
               <td className="px-4 py-3 text-right text-base font-bold tabular-nums text-slate-900">
-                S${totalCost.toFixed(2)}
+                SGD {totalCost.toFixed(2)}
               </td>
             </tr>
           </tbody>
@@ -573,7 +576,7 @@ function UsageFeatureRow({
             <div>
               <p className="text-xs text-slate-400">Projected cost</p>
               <p className="text-sm font-semibold tabular-nums text-slate-900">
-                S${currentCost.toFixed(2)}
+                SGD {currentCost.toFixed(2)}
               </p>
             </div>
             <button
@@ -587,7 +590,17 @@ function UsageFeatureRow({
         ) : (
           /* Description when disabled */
           <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-            {feature.enabledDescription}
+            {feature.enabledDescription}{" "}
+            {feature.learnMoreUrl && (
+              <a
+                href={feature.learnMoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800 transition-colors"
+              >
+                Learn more
+              </a>
+            )}
           </p>
         )}
 
@@ -821,7 +834,7 @@ function SubscribeModal({
             <div>
               <p className="text-xs text-slate-400">Total due monthly</p>
               <p className="text-xl font-bold text-slate-900">
-                $9.00{" "}
+                SGD 9.00{" "}
                 <span className="text-sm font-normal text-slate-500">
                   / account
                 </span>
