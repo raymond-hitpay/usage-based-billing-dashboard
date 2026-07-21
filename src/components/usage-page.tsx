@@ -4,6 +4,7 @@ import * as React from "react";
 import { Banknote, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Landmark, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { SubscribeCashModal } from "@/components/subscribe-cash-modal";
 
 /* ── Types & data ── */
 
@@ -18,6 +19,7 @@ interface UsageFeature {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  enabledDescription: string;
   priceLabel: string;
   currentUsage: number;
   unitLabel: string;
@@ -98,6 +100,7 @@ const USAGE_FEATURE_TEMPLATES = [
     name: "Manual Payments",
     icon: Banknote,
     description: "Cash, offline, and bank transfer payments recorded via POS or Invoice.",
+    enabledDescription: "When enabled, you can mark payments manually for payment methods outside of HitPay payment methods. Pricing decreases as your volume grows.",
     priceLabel: "from $0.005 · per transaction",
     unitLabel: "transactions",
     pricingUnit: "transaction",
@@ -108,6 +111,7 @@ const USAGE_FEATURE_TEMPLATES = [
     name: "SMS Receipts",
     icon: MessageSquare,
     description: "Send receipts via SMS to your customers.",
+    enabledDescription: "When enabled, receipts are automatically sent via SMS to your customers after each transaction. Pricing decreases as your volume grows.",
     priceLabel: "from $0.01 · per SMS",
     unitLabel: "receipts",
     pricingUnit: "send",
@@ -145,6 +149,7 @@ function getUsageFeatures(cycle: BillingCycle): UsageFeature[] {
     name: t.name,
     icon: t.icon,
     description: t.description,
+    enabledDescription: t.enabledDescription,
     priceLabel: t.priceLabel,
     currentUsage: cycle[t.cycleUsageKey],
     unitLabel: t.unitLabel,
@@ -391,10 +396,6 @@ function TierBreakdown({
 
     return (
       <div className="mt-4 rounded-lg border border-slate-100 overflow-hidden">
-        <div className="flex items-center justify-between bg-slate-50 px-4 py-2 border-b border-slate-100">
-          <span className="text-xs font-medium text-slate-500">Tier</span>
-          <span className="text-xs text-slate-400 italic">Graduated — each tier billed separately</span>
-        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 text-xs text-slate-500">
@@ -500,107 +501,117 @@ function TierBreakdown({
   );
 }
 
-/* ── Feature card ── */
+/* ── Toggle switch ── */
 
-function UsageFeatureCard({
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+        checked ? "bg-emerald-500" : "bg-slate-200"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+          checked ? "translate-x-5" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
+
+/* ── Feature row (Resend-style) ── */
+
+function UsageFeatureRow({
   feature,
+  subscribed,
   pricingModel,
-  onCancel,
+  onToggle,
 }: {
   feature: UsageFeature;
+  subscribed: boolean;
   pricingModel: PricingModel;
-  onCancel?: () => void;
+  onToggle: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const Icon = feature.icon;
-  const currentTier = getCurrentTier(feature.currentUsage, feature.tiers);
   const currentCost = computeCost(feature.currentUsage, feature.tiers, pricingModel);
-
-  const handleCancel = () => {
-    const confirmed = window.confirm(
-      `Are you sure you want to cancel ${feature.name}? You can reactivate it anytime in Add-ons.`
-    );
-    if (confirmed && onCancel) {
-      onCancel();
-    }
-  };
+  const unitLabel = feature.unitLabel.charAt(0).toUpperCase() + feature.unitLabel.slice(1);
 
   return (
-    <div className="rounded-xl border border-slate-200 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-2 justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-            <Icon className="h-4 w-4 text-slate-600" />
+    <div className="py-6 flex gap-8">
+      {/* Left: icon + name + description */}
+      <div className="w-48 shrink-0">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100">
+            <Icon className="h-3.5 w-3.5 text-slate-600" />
           </div>
-          <h3 className="text-sm font-semibold text-slate-900">
-            {feature.name}
-          </h3>
+          <h3 className="text-sm font-semibold text-slate-900">{feature.name}</h3>
         </div>
-        {onCancel && (
-          <button
-            onClick={handleCancel}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
-          >
-            Cancel
-          </button>
-        )}
+        <p className="mt-1 text-sm text-slate-500 leading-relaxed">{feature.description}</p>
       </div>
 
-      {/* Stats row: usage · current tier · projected cost */}
-      <div className="mb-3 flex items-start justify-between">
-        <div>
-          <p className="text-xs text-slate-400">{feature.unitLabel.charAt(0).toUpperCase() + feature.unitLabel.slice(1)} this cycle</p>
-          <p className="text-lg font-semibold tabular-nums text-slate-900">
-            {feature.currentUsage.toLocaleString()}
-          </p>
-        </div>
-        {pricingModel === "volume" && (
-          <div className="text-center">
-            <p className="text-xs text-slate-400">Current tier &amp; pricing</p>
-            <p className="text-sm font-semibold text-slate-900">
-              {currentTier.priceLabel === "Free"
-                ? `${currentTier.name} (Free)`
-                : `${currentTier.name} (${currentTier.priceLabel.replace("/unit", `/ ${feature.pricingUnit}`)})`
-              }
-            </p>
+      {/* Right: pricing info + stats + toggle */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-900">
+          {feature.name} · {feature.priceLabel}
+        </p>
+
+        {subscribed ? (
+          /* Stats row when enabled */
+          <div className="mt-3 flex items-center gap-6">
+            <div>
+              <p className="text-xs text-slate-400">{unitLabel} this cycle</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">
+                {feature.currentUsage.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Projected cost</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">
+                S${currentCost.toFixed(2)}
+              </p>
+            </div>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              {expanded ? "Hide breakdown" : "View breakdown"}
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
           </div>
-        )}
-        <div className="text-right">
-          <p className="text-xs text-slate-400">Projected cost</p>
-          <p className="text-lg font-semibold tabular-nums text-slate-900">
-            S${currentCost.toFixed(2)}
-          </p>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <TierProgressBar
-        currentUsage={feature.currentUsage}
-        tiers={feature.tiers}
-        pricingModel={pricingModel}
-      />
-
-      {/* Expand / collapse tier breakdown */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="mt-3 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-      >
-        {expanded ? "Hide tier breakdown" : "View tier breakdown"}
-        {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
+          /* Description when disabled */
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+            {feature.enabledDescription}
+          </p>
         )}
-      </button>
 
-      {expanded && (
-        <TierBreakdown
-          tiers={feature.tiers}
-          currentUsage={feature.currentUsage}
-          pricingModel={pricingModel}
-        />
-      )}
+        {/* Toggle */}
+        <div className="mt-4">
+          <Toggle checked={subscribed} onChange={onToggle} />
+        </div>
+
+        {/* Expandable breakdown */}
+        {subscribed && expanded && (
+          <div className="mt-4">
+            <TierProgressBar
+              currentUsage={feature.currentUsage}
+              tiers={feature.tiers}
+              pricingModel={pricingModel}
+            />
+            <TierBreakdown
+              tiers={feature.tiers}
+              currentUsage={feature.currentUsage}
+              pricingModel={pricingModel}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -833,34 +844,97 @@ function SubscribeModal({
   );
 }
 
-/* ── Not-subscribed feature card ── */
+/* ── Disable confirmation modal ── */
 
-function UsageFeatureNotSubscribed({
+function DisableFeatureModal({
   feature,
-  onActivate,
+  onConfirm,
+  onClose,
 }: {
   feature: UsageFeature;
-  onActivate: () => void;
+  onConfirm: () => void;
+  onClose: () => void;
 }) {
-  const Icon = feature.icon;
+  const [input, setInput] = React.useState("");
+  const confirmed = input.trim().toLowerCase() === "disable";
+
+  const disableDescriptions: Record<string, string> = {
+    "Manual Payments": "record cash, offline, or bank transfer payments on POS and invoices",
+    "SMS Receipts": "send SMS receipts to your customers after transactions",
+  };
+  const action = disableDescriptions[feature.name] ?? `use ${feature.name}`;
+
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if ((e.key === "Enter" && e.metaKey) && confirmed) onConfirm();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmed, onClose, onConfirm]);
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-200 px-5 py-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-        <Icon className="h-5 w-5 text-slate-600" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-semibold text-slate-900">{feature.name}</h4>
-        <p className="mt-0.5 text-sm text-slate-500">{feature.description}</p>
-        <p className="mt-0.5 text-sm text-slate-600">{feature.priceLabel}</p>
-      </div>
-      <div className="shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="relative w-full max-w-sm rounded-xl bg-white shadow-xl p-6">
         <button
-          onClick={onActivate}
-          className="rounded-lg border border-blue-200 bg-white px-4 py-1.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
+          onClick={onClose}
+          className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors"
+          aria-label="Close"
         >
-          Subscribe
+          <X className="h-4 w-4" />
         </button>
+
+        <h2 className="text-base font-bold text-slate-900 mb-3">
+          Disable {feature.name}?
+        </h2>
+        <p className="text-sm text-slate-600 mb-5">
+          By disabling this feature, you won&apos;t be able to {action}.{" "}
+          <span className="font-medium text-slate-800">
+            Note that you&apos;ll still be charged for the usage this month.
+          </span>
+        </p>
+
+        <p className="text-sm text-slate-500 mb-2">
+          Type{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-700">
+            disable
+          </code>{" "}
+          to confirm.
+        </p>
+        <input
+          autoFocus
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder=""
+          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:bg-white mb-5"
+        />
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onConfirm}
+            disabled={!confirmed}
+            className={cn(
+              "flex-1 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+              confirmed
+                ? "bg-red-50 text-red-600 hover:bg-red-100"
+                : "bg-slate-50 text-slate-300 cursor-not-allowed"
+            )}
+          >
+            <span>Disable {feature.name}</span>
+            <span className="flex items-center gap-1 text-xs opacity-60">
+              <span className="font-mono">⌘</span>
+              <span className="font-mono">↵</span>
+            </span>
+          </button>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span>Cancel</span>
+            <span className="text-xs text-slate-400 font-mono">Esc</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -873,13 +947,11 @@ export function UsagePage() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [cycleIndex, setCycleIndex] = React.useState(0); // 0 = most recent
   const [subscriptions, setSubscriptions] = React.useState<Record<string, boolean>>({
-    "Cash transactions": true,
-    "SMS receipts": false,
+    "Manual Payments": false,
+    "SMS Receipts": false,
   });
-  const [addonSubscriptions, setAddonSubscriptions] = React.useState<Record<string, boolean>>({
-    egiro: false,
-  });
-  const [subscribeModalAddon, setSubscribeModalAddon] = React.useState<MonthlyAddon | null>(null);
+  const [subscribeModalFeature, setSubscribeModalFeature] = React.useState<string | null>(null);
+  const [disableModalFeature, setDisableModalFeature] = React.useState<UsageFeature | null>(null);
 
   const currentCycle = BILLING_CYCLES[cycleIndex];
   const USAGE_FEATURES = getUsageFeatures(currentCycle);
@@ -891,32 +963,15 @@ export function UsagePage() {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  const handleConfirmSubscribe = () => {
-    if (subscribeModalAddon) {
-      setAddonSubscriptions((prev) => ({
-        ...prev,
-        [subscribeModalAddon.id]: true,
-      }));
-      setSubscribeModalAddon(null);
-    }
-  };
-
-  const activeAddons = MONTHLY_ADDONS.filter(
-    (a) => addonSubscriptions[a.id]
-  );
-  const availableAddons = MONTHLY_ADDONS.filter(
-    (a) => !addonSubscriptions[a.id]
-  );
-
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
       <div className="border-b px-8 py-5">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Usage</h1>
+            <h1 className="text-xl font-semibold text-slate-900">Pay-as-you-go</h1>
             <p className="mt-0.5 text-sm text-slate-500">
-              Track your real-time usage and see your rate improve as you grow.
+              Enable features and pay only for what you use. Rates decrease as your volume grows.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
@@ -968,105 +1023,48 @@ export function UsagePage() {
           )}
         </div>
 
-        {/* ── Active Plans ── */}
-        {/* Show activated usage-based features + activated fixed add-ons */}
-        {(USAGE_FEATURES.some((f) => subscriptions[f.name] !== false) ||
-          activeAddons.length > 0) && (
-          <div>
-            <h2 className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-3">
-              Active Plans
-            </h2>
-            <div className="space-y-4">
-              {USAGE_FEATURES.filter((f) => subscriptions[f.name] !== false).map(
-                (feature) => (
-                  <UsageFeatureCard
-                    key={feature.name}
-                    feature={feature}
-                    pricingModel={pricingModel}
-                    onCancel={() =>
-                      setSubscriptions((prev) => ({
-                        ...prev,
-                        [feature.name]: false,
-                      }))
-                    }
-                  />
-                )
-              )}
-              {activeAddons.map((addon) => (
-                <ActiveAddonCard
-                  key={addon.id}
-                  addon={addon}
-                  onCancel={() =>
-                    setAddonSubscriptions((prev) => ({
-                      ...prev,
-                      [addon.id]: false,
-                    }))
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Add-ons ── */}
-        <div>
-          <h2 className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">
-            Add-ons
-          </h2>
-
-          {/* Usage Based Pricing sub-group */}
-          {USAGE_FEATURES.some((f) => subscriptions[f.name] === false) && (
-            <div className="mt-3">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                Usage Based Pricing
-              </h3>
-              <div className="space-y-3">
-                {USAGE_FEATURES.filter(
-                  (f) => subscriptions[f.name] === false
-                ).map((feature) => (
-                  <UsageFeatureNotSubscribed
-                    key={feature.name}
-                    feature={feature}
-                    onActivate={() =>
-                      setSubscriptions((prev) => ({
-                        ...prev,
-                        [feature.name]: true,
-                      }))
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Fixed Pricing sub-group */}
-          {availableAddons.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                Fixed Pricing
-              </h3>
-              <div className="space-y-3">
-                {availableAddons.map((addon) => (
-                  <AddonCard
-                    key={addon.id}
-                    addon={addon}
-                    onSubscribe={() => setSubscribeModalAddon(addon)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="divide-y divide-slate-100">
+          {USAGE_FEATURES.map((feature) => (
+            <UsageFeatureRow
+              key={feature.name}
+              feature={feature}
+              subscribed={!!subscriptions[feature.name]}
+              pricingModel={pricingModel}
+              onToggle={() => {
+                if (subscriptions[feature.name]) {
+                  setDisableModalFeature(feature);
+                } else {
+                  setSubscribeModalFeature(feature.name);
+                }
+              }}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Subscription modal */}
-      {subscribeModalAddon && (
-        <SubscribeModal
-          addon={subscribeModalAddon}
-          onClose={() => setSubscribeModalAddon(null)}
-          onConfirm={handleConfirmSubscribe}
+      {/* Disable confirmation modal */}
+      {disableModalFeature && (
+        <DisableFeatureModal
+          feature={disableModalFeature}
+          onClose={() => setDisableModalFeature(null)}
+          onConfirm={() => {
+            setSubscriptions((prev) => ({ ...prev, [disableModalFeature.name]: false }));
+            setDisableModalFeature(null);
+          }}
         />
       )}
+
+      {/* Subscribe modal */}
+      <SubscribeCashModal
+        isOpen={subscribeModalFeature !== null}
+        onClose={() => setSubscribeModalFeature(null)}
+        onSubscribe={() => {
+          if (subscribeModalFeature) {
+            setSubscriptions((prev) => ({ ...prev, [subscribeModalFeature]: true }));
+            setSubscribeModalFeature(null);
+          }
+        }}
+      />
     </div>
   );
 }

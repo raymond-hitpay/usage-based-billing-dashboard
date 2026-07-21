@@ -7,220 +7,119 @@ import { X, Check } from "lucide-react";
 interface SubscribeCashModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSubscribe?: () => void;
   isActive?: boolean;
 }
 
-// Pricing tiers for cash transactions
+// Pricing tiers — must match MANUAL_PAYMENT_TIERS in usage-page.tsx
 const PRICING_TIERS = [
-  { min: 0, max: 50, rate: 0.1 },
-  { min: 51, max: 500, rate: 0.0222 },
-  { min: 501, max: 5000, rate: 0.0011 },
-  { min: 5001, max: Infinity, rate: 0.006 },
+  { min: 1,    max: 10,       rate: 0,     label: "1–10 txns: Free" },
+  { min: 11,   max: 50,       rate: 0.10,  label: "11–50 txns: $0.10/txn" },
+  { min: 51,   max: 500,      rate: 0.02,  label: "51–500 txns: $0.02/txn" },
+  { min: 501,  max: 5000,     rate: 0.01,  label: "501–5,000 txns: $0.01/txn" },
+  { min: 5001, max: Infinity, rate: 0.005, label: "5,001+ txns: $0.005/txn" },
 ];
 
-const FREE_TRANSACTIONS = 10;
-
 function calculateEstimatedCost(volume: number): number {
-  if (volume <= FREE_TRANSACTIONS) {
-    return 0;
-  }
-
-  let billableVolume = volume - FREE_TRANSACTIONS;
   let cost = 0;
-
-  // Find which tier(s) the billable volume falls into
+  let remaining = volume;
   for (const tier of PRICING_TIERS) {
-    if (billableVolume <= 0) break;
-
-    const tierMin = tier.min === 0 ? FREE_TRANSACTIONS : tier.min;
-    const tierMax = tier.max;
-
-    // Calculate how many transactions fall in this tier
-    const volumeInTier = Math.min(billableVolume, tierMax - tierMin + 1);
-    cost += volumeInTier * tier.rate;
-    billableVolume -= volumeInTier;
+    if (remaining <= 0) break;
+    const capacity = tier.max === Infinity ? remaining : tier.max - tier.min + 1;
+    const used = Math.min(remaining, capacity);
+    cost += used * tier.rate;
+    remaining -= used;
   }
-
   return cost;
 }
 
 export function SubscribeCashModal({
   isOpen,
   onClose,
+  onSubscribe,
   isActive = false,
 }: SubscribeCashModalProps) {
-  const [volume, setVolume] = useState(10);
+  const [volume, setVolume] = useState(1);
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const estimatedCost = calculateEstimatedCost(volume);
 
   if (!isOpen) return null;
 
-  const handleCancelClick = () => {
-    setShowCancelConfirmation(true);
-  };
-
-  const handleConfirmCancel = () => {
-    console.log("Cash subscription cancelled");
-    setShowCancelConfirmation(false);
-    onClose();
-  };
+  const sliderPct = ((volume - 1) / (5001 - 1)) * 100;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-lg">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute right-6 top-6 text-slate-400 hover:text-slate-600 transition-colors z-10"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" />
-        </button>
+      <div className="relative w-full max-w-lg flex flex-col max-h-[90vh] rounded-xl bg-white shadow-xl">
 
-        {/* Header Section */}
-        <div className="px-8 pt-8 pb-6">
-          {isActive ? (
-            <>
-              <div className="inline-block bg-green-100 text-green-700 text-xs font-bold uppercase rounded px-3 py-1 mb-4">
-                Active subscription
-              </div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-3">
-                Cash Transactions Subscription
-              </h1>
-              <p className="text-base text-slate-600">
-                You have an active cash transactions subscription. You can record cash payments on invoices with volume-based pricing.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="inline-block bg-blue-100 text-blue-700 text-xs font-bold uppercase rounded px-3 py-1 mb-4">
-                Premium feature
-              </div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-3">
-                Upgrade to record cash payments and grow without limits
-              </h1>
-              <p className="text-base text-slate-600">
-                Recording cash payments on invoices is a Premium feature. Upgrade your plan to unlock cash transactions, volume-based pricing, and advanced invoicing tools.
-              </p>
-            </>
-          )}
-        </div>
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 pt-6 pb-4">
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute right-5 top-5 text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
 
-        {/* Main Content */}
-        <div className="px-8 pb-8">
-          {/* Pricing Card */}
-          <div className="mb-8 rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-sm font-semibold text-slate-600 uppercase mb-1">
-                  Cash Transactions
-                </p>
-                <p className="text-base text-slate-500 mb-4">
-                  Pay-per-transaction
-                </p>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-4xl font-bold text-slate-900">
-                    ${estimatedCost.toFixed(2)}
-                  </span>
+          {/* Badge + heading */}
+          <div className={`inline-block text-xs font-bold uppercase rounded px-2.5 py-1 mb-3 ${isActive ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+            {isActive ? "Active subscription" : "Premium feature"}
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-1">
+            {isActive ? "Manual Payments" : "Subscribe to Manual Payments"}
+          </h2>
+          <p className="text-sm text-slate-500 mb-5">
+            Record cash, bank transfer, and offline payments on POS and invoices.
+          </p>
+
+          {/* Pricing tiers — compact list */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 mb-5">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2.5">Pricing tiers</p>
+            <div className="space-y-1.5">
+              {PRICING_TIERS.map((tier) => (
+                <div key={tier.label} className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span className="text-sm text-slate-700">{tier.label}</span>
                 </div>
-                <p className="text-sm text-slate-600 mb-4">
-                  {volume} transactions
-                </p>
-                <p className="text-sm text-slate-600">
-                  POS and Invoice cash transactions. Volume-based pricing: start at $0.10/txn for light users, decreasing rates as you grow. Plus 10 free transactions per month.
-                </p>
-              </div>
-
-              {/* Pricing Tiers */}
-              <div>
-                <p className="text-sm font-semibold text-slate-900 mb-4">
-                  Pricing Tiers
-                </p>
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <Check className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span className="text-sm text-slate-700">
-                      0-50 txns: $0.10/txn
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Check className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span className="text-sm text-slate-700">
-                      51-500 txns: $0.0222/txn
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Check className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span className="text-sm text-slate-700">
-                      501-5,000 txns: $0.0011/txn
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Check className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span className="text-sm text-slate-700">
-                      5,001+ txns: $0.0060/txn
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Check className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span className="text-sm text-slate-700">
-                      10 free txns/month included
-                    </span>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Volume Slider Section */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                Volume Slider
-              </p>
-              <p className="text-lg font-bold text-blue-600">
-                {volume} transactions
-              </p>
+          {/* Volume slider */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Estimate your cost</p>
+              <p className="text-sm font-bold text-blue-600">{volume.toLocaleString()} txns</p>
             </div>
-            <div className="space-y-4">
-              <input
-                type="range"
-                min="10"
-                max="5000"
-                value={volume}
-                onChange={(e) => setVolume(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                style={{
-                  background: `linear-gradient(to right, rgb(37, 99, 235) 0%, rgb(37, 99, 235) ${((volume - 10) / (5000 - 10)) * 100}%, rgb(226, 232, 240) ${((volume - 10) / (5000 - 10)) * 100}%, rgb(226, 232, 240) 100%)`,
-                }}
-              />
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>10 txns</span>
-                <span>5,000+ txns</span>
-              </div>
+            <input
+              type="range"
+              min="1"
+              max="5001"
+              value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, rgb(37,99,235) ${sliderPct}%, rgb(226,232,240) ${sliderPct}%)`,
+              }}
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <span>1 txn</span>
+              <span>5,001+ txns</span>
             </div>
           </div>
 
-          {/* Estimated Monthly Cost */}
-          <div className="mb-8 rounded-lg bg-slate-50 border border-slate-200 p-6">
-            <p className="text-sm text-slate-600 mb-2">
-              Estimated monthly cost
-            </p>
-            <p className="text-2xl font-bold text-slate-900">
-              ${estimatedCost.toFixed(2)} / {volume} transactions
-            </p>
-          </div>
-
-          {/* Footer Text */}
-          <div className="mb-6 text-center text-xs text-slate-500">
-            Cancel anytime. Prices in SGD. No setup fees.
+          {/* Estimated cost */}
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-center justify-between">
+            <p className="text-sm text-slate-500">Estimated monthly cost</p>
+            <p className="text-lg font-bold text-slate-900">S${estimatedCost.toFixed(2)}</p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 border-t border-slate-200 px-8 py-4 bg-slate-50">
+        {/* Sticky footer */}
+        <div className="border-t border-slate-200 px-6 py-4 bg-white rounded-b-xl">
           {isActive ? (
-            <>
+            <div className="flex gap-3">
               <button
                 onClick={onClose}
                 className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
@@ -228,42 +127,54 @@ export function SubscribeCashModal({
                 Close
               </button>
               <button
-                onClick={handleCancelClick}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors shadow-sm"
+                onClick={() => setShowCancelConfirmation(true)}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
               >
                 Cancel Plan
               </button>
-            </>
+            </div>
           ) : (
             <>
-              <button
-                onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  window.location.href = "https://hitpay-billing-sandbox.fly.dev/recurring-billing/cherry-4/hitpay-subscription";
-                }}
-                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                Subscribe now
-              </button>
+              <div className="flex gap-3 mb-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onSubscribe?.();
+                    window.location.href = "https://hitpay-billing-sandbox.fly.dev/recurring-billing/cherry-4/hitpay-subscription";
+                  }}
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                >
+                  Subscribe now
+                </button>
+              </div>
+              <p className="text-center text-xs text-slate-400 mb-1">
+                Cancel anytime · Prices in SGD · No setup fees
+              </p>
+              <p className="text-center">
+                <button
+                  onClick={() => onSubscribe?.()}
+                  className="text-xs text-slate-400 underline hover:text-slate-600 transition-colors"
+                >
+                  Mock subscribe (skip checkout)
+                </button>
+              </p>
             </>
           )}
         </div>
       </div>
 
-      {/* Cancel Confirmation Dialog */}
+      {/* Cancel confirmation */}
       {showCancelConfirmation && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-          <div className="relative w-full max-w-sm rounded-lg bg-white shadow-lg p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-3">
-              Cancel Subscription?
-            </h2>
-            <p className="text-sm text-slate-600 mb-6">
-              Are you sure you want to cancel your cash transactions subscription? You will no longer be able to record cash payments on invoices.
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-xl p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-2">Cancel Subscription?</h2>
+            <p className="text-sm text-slate-500 mb-5">
+              You will no longer be able to record cash payments on invoices.
             </p>
             <div className="flex gap-3">
               <button
@@ -273,7 +184,7 @@ export function SubscribeCashModal({
                 Keep Plan
               </button>
               <button
-                onClick={handleConfirmCancel}
+                onClick={() => { setShowCancelConfirmation(false); onClose(); }}
                 className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
               >
                 Cancel Plan
