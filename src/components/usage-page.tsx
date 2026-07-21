@@ -957,6 +957,7 @@ export function UsagePage() {
   const USAGE_FEATURES = getUsageFeatures(currentCycle);
   const isLatestCycle = cycleIndex === 0;
   const isOldestCycle = cycleIndex === BILLING_CYCLES.length - 1;
+  const hasAnySubscription = Object.values(subscriptions).some(Boolean);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -999,23 +1000,27 @@ export function UsagePage() {
         {/* Billing cycle selector */}
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
           <span className="font-medium text-slate-700">Billing cycle:</span>
-          <button
-            onClick={() => setCycleIndex((i) => i + 1)}
-            disabled={isOldestCycle}
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Previous billing cycle"
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </button>
+          {hasAnySubscription && (
+            <button
+              onClick={() => setCycleIndex((i) => i + 1)}
+              disabled={isOldestCycle}
+              className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Previous billing cycle"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </button>
+          )}
           <span className="tabular-nums">{currentCycle.start} – {currentCycle.end}</span>
-          <button
-            onClick={() => setCycleIndex((i) => i - 1)}
-            disabled={isLatestCycle}
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Next billing cycle"
-          >
-            <ChevronRight className="h-3 w-3" />
-          </button>
+          {hasAnySubscription && (
+            <button
+              onClick={() => setCycleIndex((i) => i - 1)}
+              disabled={isLatestCycle}
+              className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Next billing cycle"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          )}
           {isLatestCycle && (
             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
               Current
