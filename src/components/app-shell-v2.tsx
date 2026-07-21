@@ -29,7 +29,6 @@ export function AppShellV2() {
     tabDefaults.payments
   );
   const [agentOpen, setAgentOpen] = React.useState(false);
-  const [pricingModel, setPricingModel] = React.useState<"volume" | "graduated">("graduated");
 
 
   // Account verification status
@@ -181,8 +180,6 @@ export function AppShellV2() {
         onSubViewChange={handleSubViewChange}
         onSelectPage={setSelectedPage}
         onOpenAgent={() => setAgentOpen(true)}
-        pricingModel={pricingModel}
-        onPricingModelChange={setPricingModel}
       />
       <main className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {showCharges ? (
@@ -201,9 +198,9 @@ export function AppShellV2() {
             setupGroups={setupGroups}
           />
         ) : selectedPage === "Usage" ? (
-          <UsagePage pricingModel={pricingModel} />
+          <UsagePage />
         ) : selectedPage === "Billing" ? (
-          <BillingPage pricingModel={pricingModel} />
+          <BillingPage />
         ) : showIntegrations ? (
           <IntegrationsPage />
         ) : (

@@ -222,9 +222,6 @@ function InvoiceHistoryCard({ pricingModel }: { pricingModel: PricingModel }) {
             <tr className="bg-slate-50 text-xs text-slate-500">
               <th className="px-4 py-2.5 text-left font-medium">Invoice</th>
               <th className="px-4 py-2.5 text-left font-medium">Date</th>
-              <th className="px-4 py-2.5 text-left font-medium">
-                Description
-              </th>
               <th className="px-4 py-2.5 text-right font-medium">Amount</th>
               <th className="px-4 py-2.5 text-left font-medium">Status</th>
               <th className="px-4 py-2.5 text-right font-medium" />
@@ -235,13 +232,12 @@ function InvoiceHistoryCard({ pricingModel }: { pricingModel: PricingModel }) {
               <tr
                 key={inv.id}
                 className="border-t border-slate-100 cursor-pointer transition-colors hover:bg-slate-50"
-                onClick={() => window.open(`/invoice/${inv.id}?model=${pricingModel}`, '_blank')}
+                onClick={() => window.open(`/invoice/${inv.id}`, '_blank')}
               >
                 <td className="px-4 py-3 font-medium text-blue-600">
                   {inv.id}
                 </td>
                 <td className="px-4 py-3 text-slate-500">{inv.date}</td>
-                <td className="px-4 py-3 text-slate-500">{inv.description}</td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-900">
                   {inv.amount}
                 </td>
@@ -343,7 +339,8 @@ function BillingAddressCard() {
 
 /* ── Main page ── */
 
-export function BillingPage({ pricingModel }: { pricingModel: PricingModel }) {
+export function BillingPage() {
+  const pricingModel: PricingModel = "graduated";
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}

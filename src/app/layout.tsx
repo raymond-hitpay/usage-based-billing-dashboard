@@ -3,8 +3,8 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HitPay — Payment Links",
-  description: "Payment Links dashboard demo",
+  title: "HitPay - Usage Based Billing",
+  description: "Usage Based Billing dashboard demo",
 };
 
 export default function RootLayout({

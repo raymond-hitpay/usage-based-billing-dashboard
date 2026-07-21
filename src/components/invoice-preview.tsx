@@ -362,12 +362,10 @@ function LineItemRow({ item, alwaysExpanded }: { item: InvoiceLineItem; alwaysEx
 
 export function InvoicePreview({
   invoiceId,
-  pricingModel = "graduated",
 }: {
   invoiceId: string;
-  pricingModel?: PricingModel;
 }) {
-  const invoiceMap = pricingModel === "volume" ? MOCK_INVOICES_VOLUME : MOCK_INVOICES_GRADUATED;
+  const invoiceMap = MOCK_INVOICES_GRADUATED;
   const invoice = invoiceMap[invoiceId];
 
   if (!invoice) {
@@ -473,7 +471,7 @@ export function InvoicePreview({
             </thead>
             <tbody>
               {invoice.lineItems.map((item) => (
-                <LineItemRow key={item.description} item={item} alwaysExpanded={pricingModel === "graduated"} />
+                <LineItemRow key={item.description} item={item} alwaysExpanded={true} />
               ))}
             </tbody>
           </table>

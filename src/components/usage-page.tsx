@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Banknote, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Landmark, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
+import { Banknote, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Landmark, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -46,20 +46,19 @@ const BILLING_CYCLES: BillingCycle[] = [
   { label: "Jan 2026", start: "Jan 1, 2026", end: "Jan 31, 2026", cashUsage: 140, smsUsage: 62 },
 ];
 
-const CASH_TIERS: Tier[] = [
-  { name: "Tier 1", min: 1, max: 50, priceLabel: "Free" },
-  { name: "Tier 2", min: 51, max: 500, priceLabel: "S$0.05/unit" },
-  { name: "Tier 3", min: 501, max: 2_000, priceLabel: "S$0.03/unit" },
-  { name: "Tier 4", min: 2_001, max: 5_000, priceLabel: "S$0.01/unit" },
-  { name: "Tier 5", min: 5_001, max: null, priceLabel: "S$0.005/unit" },
+const MANUAL_PAYMENT_TIERS: Tier[] = [
+  { name: "Free Tier", min: 1, max: 10, priceLabel: "Free" },
+  { name: "Tier 1", min: 11, max: 50, priceLabel: "$0.10/txn" },
+  { name: "Tier 2", min: 51, max: 500, priceLabel: "$0.02/txn" },
+  { name: "Tier 3", min: 501, max: 5_000, priceLabel: "$0.01/txn" },
+  { name: "Tier 4", min: 5_001, max: null, priceLabel: "$0.005/txn" },
 ];
 
 const SMS_TIERS: Tier[] = [
-  { name: "Tier 1", min: 1, max: 50, priceLabel: "Free" },
-  { name: "Tier 2", min: 51, max: 500, priceLabel: "S$0.05/unit" },
-  { name: "Tier 3", min: 501, max: 2_000, priceLabel: "S$0.03/unit" },
-  { name: "Tier 4", min: 2_001, max: 5_000, priceLabel: "S$0.01/unit" },
-  { name: "Tier 5", min: 5_001, max: null, priceLabel: "S$0.005/unit" },
+  { name: "Free Tier", min: 1, max: 5, priceLabel: "Free" },
+  { name: "Tier 1", min: 6, max: 500, priceLabel: "$0.025/SMS" },
+  { name: "Tier 2", min: 501, max: 5_000, priceLabel: "$0.02/SMS" },
+  { name: "Tier 3", min: 5_001, max: null, priceLabel: "$0.01/SMS" },
 ];
 
 /* ── Monthly add-on types & data ── */
@@ -81,25 +80,6 @@ interface MonthlyAddon {
 
 const MONTHLY_ADDONS: MonthlyAddon[] = [
   {
-    id: "quickbooks",
-    name: "QuickBooks Online",
-    icon: BookOpen,
-    description: "Sync your HitPay sales data to QuickBooks automatically.",
-    priceLabel: "$9.00 · per month / account",
-    price: "$9",
-    priceUnit: "per month per account",
-    status: "available",
-    type: "fixed",
-    categoryLabel: "Accounting Integrations",
-    categoryDescription:
-      "Connect your accounting software for unlimited, automatic syncs. One flat monthly fee per connected account, regardless of sync frequency or volume.",
-    features: [
-      "Unlimited syncs per month",
-      "Auto-sync schedule",
-      "Transaction matching",
-    ],
-  },
-  {
     id: "egiro",
     name: "eGiro (DBS Direct Debit)",
     icon: Landmark,
@@ -115,20 +95,20 @@ const MONTHLY_ADDONS: MonthlyAddon[] = [
 
 const USAGE_FEATURE_TEMPLATES = [
   {
-    name: "Cash transactions",
+    name: "Manual Payments",
     icon: Banknote,
-    description: "Per-transaction charges for cash payments processed through HitPay.",
-    priceLabel: "from $0.01 · per transaction",
+    description: "Cash, offline, and bank transfer payments recorded via POS or Invoice.",
+    priceLabel: "from $0.005 · per transaction",
     unitLabel: "transactions",
     pricingUnit: "transaction",
-    tiers: CASH_TIERS,
+    tiers: MANUAL_PAYMENT_TIERS,
     cycleUsageKey: "cashUsage" as const,
   },
   {
-    name: "SMS receipts",
+    name: "SMS Receipts",
     icon: MessageSquare,
     description: "Send receipts via SMS to your customers.",
-    priceLabel: "from $0.025 · per SMS",
+    priceLabel: "from $0.01 · per SMS",
     unitLabel: "receipts",
     pricingUnit: "send",
     tiers: SMS_TIERS,
@@ -189,10 +169,13 @@ type PricingModel = "volume" | "graduated";
 
 const RATES: Record<string, number> = {
   Free: 0,
-  "S$0.05/unit": 0.05,
-  "S$0.03/unit": 0.03,
-  "S$0.01/unit": 0.01,
-  "S$0.005/unit": 0.005,
+  "$0.10/txn": 0.10,
+  "$0.02/txn": 0.02,
+  "$0.01/txn": 0.01,
+  "$0.005/txn": 0.005,
+  "$0.025/SMS": 0.025,
+  "$0.02/SMS": 0.02,
+  "$0.01/SMS": 0.01,
 };
 
 /** Graduated cost: each unit is charged at the rate of the tier it falls into. */
@@ -408,6 +391,10 @@ function TierBreakdown({
 
     return (
       <div className="mt-4 rounded-lg border border-slate-100 overflow-hidden">
+        <div className="flex items-center justify-between bg-slate-50 px-4 py-2 border-b border-slate-100">
+          <span className="text-xs font-medium text-slate-500">Tier</span>
+          <span className="text-xs text-slate-400 italic">Graduated — each tier billed separately</span>
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 text-xs text-slate-500">
@@ -456,6 +443,13 @@ function TierBreakdown({
                 </tr>
               );
             })}
+            <tr className="border-t-2 border-slate-300 bg-slate-50">
+              <td colSpan={3} />
+              <td className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Total</td>
+              <td className="px-4 py-3 text-right text-base font-bold tabular-nums text-slate-900">
+                S${totalCost.toFixed(2)}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -874,7 +868,8 @@ function UsageFeatureNotSubscribed({
 
 /* ── Main page ── */
 
-export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
+export function UsagePage() {
+  const pricingModel: PricingModel = "graduated";
   const [refreshing, setRefreshing] = React.useState(false);
   const [cycleIndex, setCycleIndex] = React.useState(0); // 0 = most recent
   const [subscriptions, setSubscriptions] = React.useState<Record<string, boolean>>({
@@ -882,7 +877,6 @@ export function UsagePage({ pricingModel }: { pricingModel: PricingModel }) {
     "SMS receipts": false,
   });
   const [addonSubscriptions, setAddonSubscriptions] = React.useState<Record<string, boolean>>({
-    quickbooks: true,
     egiro: false,
   });
   const [subscribeModalAddon, setSubscribeModalAddon] = React.useState<MonthlyAddon | null>(null);
