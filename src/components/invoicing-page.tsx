@@ -83,13 +83,14 @@ export function InvoicingPage() {
   const [cashPaymentsUsed, setCashPaymentsUsed] = React.useState(10);
   const [showUpsellModal, setShowUpsellModal] = React.useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = React.useState(false);
+  const [isManualPaymentsActive, setIsManualPaymentsActive] = React.useState(false);
 
   const handleAddPayment = () => {
     // Check if user has exceeded free limit
-    if (cashPaymentsUsed >= 10) {
+    if (cashPaymentsUsed >= 10 && !isManualPaymentsActive) {
       setShowUpsellModal(true);
-    } else {
-      // In a real app, this would open a payment dialog
+    } else if (isManualPaymentsActive) {
+      // User has active subscription, they can add unlimited payments
       setCashPaymentsUsed((prev) => prev + 1);
     }
   };
@@ -101,6 +102,10 @@ export function InvoicingPage() {
 
   const handleCloseSubscribe = () => {
     setShowSubscribeModal(false);
+  };
+
+  const handleSubscribeSuccess = () => {
+    setIsManualPaymentsActive(true);
   };
 
   return (
@@ -225,6 +230,7 @@ export function InvoicingPage() {
       <SubscribeCashModal
         isOpen={showSubscribeModal}
         onClose={handleCloseSubscribe}
+        onSubscribe={handleSubscribeSuccess}
       />
     </div>
   );

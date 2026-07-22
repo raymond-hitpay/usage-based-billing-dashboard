@@ -38,15 +38,16 @@ interface BillingCycle {
   end: string;
   cashUsage: number;
   smsUsage: number;
+  egiroUsage: number;
 }
 
 const BILLING_CYCLES: BillingCycle[] = [
-  { label: "Jun 2026", start: "Jun 1, 2026", end: "Jun 30, 2026", cashUsage: 1_240, smsUsage: 328 },
-  { label: "May 2026", start: "May 1, 2026", end: "May 31, 2026", cashUsage: 980, smsUsage: 210 },
-  { label: "Apr 2026", start: "Apr 1, 2026", end: "Apr 30, 2026", cashUsage: 420, smsUsage: 95 },
-  { label: "Mar 2026", start: "Mar 1, 2026", end: "Mar 31, 2026", cashUsage: 0, smsUsage: 0 },
-  { label: "Feb 2026", start: "Feb 1, 2026", end: "Feb 28, 2026", cashUsage: 8_200, smsUsage: 3_100 },
-  { label: "Jan 2026", start: "Jan 1, 2026", end: "Jan 31, 2026", cashUsage: 140, smsUsage: 62 },
+  { label: "Jun 2026", start: "Jun 1, 2026", end: "Jun 30, 2026", cashUsage: 1_240, smsUsage: 328, egiroUsage: 150 },
+  { label: "May 2026", start: "May 1, 2026", end: "May 31, 2026", cashUsage: 980, smsUsage: 210, egiroUsage: 85 },
+  { label: "Apr 2026", start: "Apr 1, 2026", end: "Apr 30, 2026", cashUsage: 420, smsUsage: 95, egiroUsage: 42 },
+  { label: "Mar 2026", start: "Mar 1, 2026", end: "Mar 31, 2026", cashUsage: 0, smsUsage: 0, egiroUsage: 0 },
+  { label: "Feb 2026", start: "Feb 1, 2026", end: "Feb 28, 2026", cashUsage: 8_200, smsUsage: 3_100, egiroUsage: 280 },
+  { label: "Jan 2026", start: "Jan 1, 2026", end: "Jan 31, 2026", cashUsage: 140, smsUsage: 62, egiroUsage: 15 },
 ];
 
 const MANUAL_PAYMENT_TIERS: Tier[] = [
@@ -63,6 +64,16 @@ const SMS_TIERS: Tier[] = [
   { name: "Tier 2", min: 501, max: 5_000, priceLabel: "SGD 0.02/SMS" },
   { name: "Tier 3", min: 5_001, max: null, priceLabel: "SGD 0.01/SMS" },
 ];
+
+const EGIRO_TIERS: Tier[] = [
+  { name: "Free Tier", min: 1, max: 100, priceLabel: "Free" },
+  { name: "Overage", min: 101, max: null, priceLabel: "SGD 0.10/auth" },
+];
+
+/* ── Flat monthly fees for features ── */
+const FLAT_FEES: Record<string, number> = {
+  "eGiro (DBS Direct Debit)": 15.00,
+};
 
 /* ── Monthly add-on types & data ── */
 
@@ -119,6 +130,17 @@ const USAGE_FEATURE_TEMPLATES = [
     pricingUnit: "send",
     tiers: SMS_TIERS,
     cycleUsageKey: "smsUsage" as const,
+  },
+  {
+    name: "eGiro (DBS Direct Debit)",
+    icon: Landmark,
+    description: "Accept direct debit payments via DBS eGiro.",
+    enabledDescription: "When enabled, you can accept DBS Direct Debit payments. Includes 100 free authorizations per month. Additional authorizations are charged per unit.",
+    priceLabel: "SGD 15 · per month + SGD 0.10/auth overage",
+    unitLabel: "authorizations",
+    pricingUnit: "authorization",
+    tiers: EGIRO_TIERS,
+    cycleUsageKey: "egiroUsage" as const,
   },
 ];
 
@@ -184,6 +206,7 @@ const RATES: Record<string, number> = {
   "SGD 0.025/SMS": 0.025,
   "SGD 0.02/SMS": 0.02,
   "SGD 0.01/SMS": 0.01,
+  "SGD 0.10/auth": 0.10,
 };
 
 /** Graduated cost: each unit is charged at the rate of the tier it falls into. */
@@ -214,6 +237,13 @@ function computeCost(usage: number, tiers: Tier[], model: PricingModel): number 
   return model === "volume"
     ? computeVolumeCost(usage, tiers)
     : computeGraduatedCost(usage, tiers);
+}
+
+/** Compute total cost for a feature including flat fees. */
+function computeFeatureCost(featureName: string, usage: number, tiers: Tier[], model: PricingModel): number {
+  const baseCost = computeCost(usage, tiers, model);
+  const flatFee = FLAT_FEES[featureName] ?? 0;
+  return baseCost + flatFee;
 }
 
 /** For each tier, how many units were consumed and what fill % that is within the segment. */
@@ -542,7 +572,7 @@ function UsageFeatureRow({
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const Icon = feature.icon;
-  const currentCost = computeCost(feature.currentUsage, feature.tiers, pricingModel);
+  const currentCost = computeFeatureCost(feature.name, feature.currentUsage, feature.tiers, pricingModel);
   const unitLabel = feature.unitLabel.charAt(0).toUpperCase() + feature.unitLabel.slice(1);
 
   return (
@@ -874,6 +904,7 @@ function DisableFeatureModal({
   const disableDescriptions: Record<string, string> = {
     "Manual Payments": "record cash, offline, or bank transfer payments on POS and invoices",
     "SMS Receipts": "send SMS receipts to your customers after transactions",
+    "eGiro (DBS Direct Debit)": "accept DBS Direct Debit payments",
   };
   const action = disableDescriptions[feature.name] ?? `use ${feature.name}`;
 
@@ -962,15 +993,33 @@ export function UsagePage() {
   const [subscriptions, setSubscriptions] = React.useState<Record<string, boolean>>({
     "Manual Payments": false,
     "SMS Receipts": false,
+    "eGiro (DBS Direct Debit)": false,
   });
-  const [subscribeModalFeature, setSubscribeModalFeature] = React.useState<string | null>(null);
+  const [subscribeModalFeature, setSubscribeModalFeature] = React.useState<UsageFeature | null>(null);
   const [disableModalFeature, setDisableModalFeature] = React.useState<UsageFeature | null>(null);
+  const [showCostBreakdown, setShowCostBreakdown] = React.useState(false);
 
   const currentCycle = BILLING_CYCLES[cycleIndex];
   const USAGE_FEATURES = getUsageFeatures(currentCycle);
   const isLatestCycle = cycleIndex === 0;
   const isOldestCycle = cycleIndex === BILLING_CYCLES.length - 1;
   const hasAnySubscription = Object.values(subscriptions).some(Boolean);
+
+  // Calculate total projected cost and breakdown by feature
+  const projectedCostData = React.useMemo(() => {
+    const breakdown: Array<{ name: string; cost: number }> = [];
+    const total = USAGE_FEATURES.reduce((total, feature) => {
+      if (subscriptions[feature.name]) {
+        const featureCost = computeFeatureCost(feature.name, feature.currentUsage, feature.tiers, pricingModel);
+        breakdown.push({ name: feature.name, cost: featureCost });
+        return total + featureCost;
+      }
+      return total;
+    }, 0);
+    return { total, breakdown };
+  }, [subscriptions, USAGE_FEATURES, pricingModel]);
+
+  const projectedCostTotal = projectedCostData.total;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1010,36 +1059,86 @@ export function UsagePage() {
 
       {/* Content */}
       <div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
-        {/* Billing cycle selector */}
-        {hasAnySubscription && <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
-          <span className="font-medium text-slate-700">Billing cycle:</span>
-          {hasAnySubscription && (
-            <button
-              onClick={() => setCycleIndex((i) => i + 1)}
-              disabled={isOldestCycle}
-              className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Previous billing cycle"
-            >
-              <ChevronLeft className="h-3 w-3" />
-            </button>
-          )}
-          <span className="tabular-nums">{currentCycle.start} – {currentCycle.end}</span>
-          {hasAnySubscription && (
-            <button
-              onClick={() => setCycleIndex((i) => i - 1)}
-              disabled={isLatestCycle}
-              className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Next billing cycle"
-            >
-              <ChevronRight className="h-3 w-3" />
-            </button>
-          )}
-          {isLatestCycle && (
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-              Current
-            </span>
-          )}
-        </div>}
+        {/* Billing cycle selector + projected cost */}
+        {hasAnySubscription && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+              <span className="font-medium text-slate-700">Billing cycle:</span>
+              {hasAnySubscription && (
+                <button
+                  onClick={() => setCycleIndex((i) => i + 1)}
+                  disabled={isOldestCycle}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Previous billing cycle"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </button>
+              )}
+              <span className="tabular-nums">{currentCycle.start} – {currentCycle.end}</span>
+              {hasAnySubscription && (
+                <button
+                  onClick={() => setCycleIndex((i) => i - 1)}
+                  disabled={isLatestCycle}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Next billing cycle"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              )}
+              {isLatestCycle && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                  Current
+                </span>
+              )}
+            </div>
+            {/* Projected cost summary */}
+            <div className="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 overflow-hidden">
+              <button
+                onClick={() => setShowCostBreakdown(!showCostBreakdown)}
+                className="w-full px-5 py-4 text-left hover:bg-blue-100/30 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total for this cycle</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 text-blue-500 transition-transform",
+                        showCostBreakdown && "rotate-180"
+                      )}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-3xl font-bold text-slate-900">
+                    SGD {projectedCostTotal.toFixed(2)}
+                  </p>
+                  <span className="text-sm text-slate-500">for {BILLING_CYCLES[cycleIndex].label}</span>
+                </div>
+              </button>
+
+              {/* Cost breakdown (expandable) */}
+              {showCostBreakdown && projectedCostData.breakdown.length > 0 && (
+                <div className="border-t border-blue-200 px-5 py-3 space-y-2 bg-white/50">
+                  {projectedCostData.breakdown.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{item.name}</span>
+                      <span className="font-semibold text-slate-900">SGD {item.cost.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {projectedCostData.breakdown.length > 1 && (
+                    <>
+                      <div className="border-t border-slate-200 my-2" />
+                      <div className="flex items-center justify-between text-sm font-semibold">
+                        <span className="text-slate-700">Total</span>
+                        <span className="text-slate-900">SGD {projectedCostTotal.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="divide-y divide-slate-100">
           {USAGE_FEATURES.map((feature) => (
@@ -1052,7 +1151,7 @@ export function UsagePage() {
                 if (subscriptions[feature.name]) {
                   setDisableModalFeature(feature);
                 } else {
-                  setSubscribeModalFeature(feature.name);
+                  setSubscribeModalFeature(feature);
                 }
               }}
             />
@@ -1076,9 +1175,10 @@ export function UsagePage() {
       <SubscribeCashModal
         isOpen={subscribeModalFeature !== null}
         onClose={() => setSubscribeModalFeature(null)}
+        feature={subscribeModalFeature || undefined}
         onSubscribe={() => {
           if (subscribeModalFeature) {
-            setSubscriptions((prev) => ({ ...prev, [subscribeModalFeature]: true }));
+            setSubscriptions((prev) => ({ ...prev, [subscribeModalFeature.name]: true }));
             setSubscribeModalFeature(null);
           }
         }}
